@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/main.dart';
-import 'package:sketchbook/models/drag_handle.dart';
-import 'package:sketchbook/models/entity.dart';
+import 'package:sketchbook/models/entities/drag_handle.dart';
+import 'package:sketchbook/models/entities/entity.dart';
+
+enum WallState {
+  active,
+  removed,
+}
 
 class Wall extends Entity {
   final double thickness;
-  final DragHandle leftHandle;
-  final DragHandle rightHandle;
+  DragHandle handleA;
+  DragHandle handleB;
+  WallState wallState;
 
   Wall({
     required super.id,
     required this.thickness,
-    required this.leftHandle,
-    required this.rightHandle,
+    required this.handleA,
+    required this.handleB,
+    this.wallState = WallState.active,
   }) : super(
-          x: leftHandle.x,
-          y: (leftHandle.y + rightHandle.y) / 2,
+          x: handleA.x,
+          y: (handleA.y + handleB.y) / 2,
         );
 
-  double get length => (rightHandle.x - leftHandle.x).abs();
+  double get length => (handleB.x - handleA.x).abs();
 
   @override
   void draw(Canvas canvas, EntityState state) {
@@ -27,39 +34,40 @@ class Wall extends Entity {
     if (state == EntityState.focused) {
       paint.color = Colors.blue;
     }
+    if (wallState == WallState.removed) {
+      paint.color = Colors.grey.shade300;
+    }
     canvas.drawLine(
-      Offset(leftHandle.x, leftHandle.y),
-      Offset(rightHandle.x, rightHandle.y),
+      Offset(handleA.x, handleA.y),
+      Offset(handleB.x, handleB.y),
       paint,
     );
 
     // Draw handles
-    leftHandle.draw(canvas, state);
-    rightHandle.draw(canvas, state);
+    handleA.draw(canvas, state);
+    handleB.draw(canvas, state);
   }
 
   @override
   bool contains(Offset position) {
-    return _distanceToLineSegment(position, Offset(leftHandle.x, leftHandle.y),
-            Offset(rightHandle.x, rightHandle.y)) <
+    return _distanceToLineSegment(position, Offset(handleA.x, handleA.y),
+            Offset(handleB.x, handleB.y)) <
         thickness / 2;
   }
 
   DragHandle getClosestHandle(Offset position) {
-    double distanceToLeft =
-        (position - Offset(leftHandle.x, leftHandle.y)).distance;
-    double distanceToRight =
-        (position - Offset(rightHandle.x, rightHandle.y)).distance;
+    double distanceToLeft = (position - Offset(handleA.x, handleA.y)).distance;
+    double distanceToRight = (position - Offset(handleB.x, handleB.y)).distance;
 
-    return distanceToLeft < distanceToRight ? leftHandle : rightHandle;
+    return distanceToLeft < distanceToRight ? handleA : handleB;
   }
 
   @override
   void move(double deltaX, double deltaY) {
-    leftHandle.move(deltaX, deltaY);
-    rightHandle.move(deltaX, deltaY);
-    x = leftHandle.x;
-    y = (leftHandle.y + rightHandle.y) / 2;
+    handleA.move(deltaX, deltaY);
+    handleB.move(deltaX, deltaY);
+    x = handleA.x;
+    y = (handleA.y + handleB.y) / 2;
   }
 
   (Wall, Wall) split(Wall wall, Offset position) {
@@ -67,37 +75,34 @@ class Wall extends Entity {
     double splitY = position.dy;
 
     // Create two new walls at the split point
-    Wall leftWall = Wall(
+    final commonHandle = DragHandle(
       id: generateGuid(),
-      thickness: wall.thickness,
-      leftHandle: DragHandle(
-        id: generateGuid(),
-        x: wall.leftHandle.x,
-        y: wall.leftHandle.y,
-      ),
-      rightHandle: DragHandle(
-        id: generateGuid(),
-        x: splitX,
-        y: splitY,
-      ),
+      x: splitX,
+      y: splitY,
     );
+
+    Wall leftWall = Wall(
+        id: generateGuid(),
+        thickness: wall.thickness,
+        handleA: wall.handleA,
+        handleB: commonHandle);
 
     Wall rightWall = Wall(
       id: generateGuid(),
       thickness: wall.thickness,
-      leftHandle: DragHandle(
-        id: generateGuid(),
-        x: splitX,
-        y: splitY,
-      ),
-      rightHandle: DragHandle(
-        id: generateGuid(),
-        x: wall.rightHandle.x,
-        y: wall.rightHandle.y,
-      ),
+      handleA: commonHandle,
+      handleB: wall.handleB,
     );
 
     return (leftWall, rightWall);
+  }
+
+  void replaceHandle(DragHandle oldHandle, DragHandle newHandle) {
+    if (handleA.isEqual(oldHandle)) {
+      handleA = newHandle;
+    } else if (handleB.isEqual(oldHandle)) {
+      handleB = newHandle;
+    }
   }
 
   // Helper method to calculate the distance from a point to a line segment

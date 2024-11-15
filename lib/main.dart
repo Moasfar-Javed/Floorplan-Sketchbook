@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sketchbook/free_scroll_view.dart';
-import 'package:sketchbook/models/drag_handle.dart';
-import 'package:sketchbook/models/entity.dart';
+import 'package:sketchbook/models/entities/drag_handle.dart';
+import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/grid.dart';
-import 'package:sketchbook/models/wall.dart';
+import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/painters/grid_painter.dart';
+import 'package:sketchbook/painters/overlay_painter.dart';
 import 'package:uuid/uuid.dart';
 
 const Uuid _uuid = Uuid();
@@ -70,19 +70,23 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       body: GestureDetector(
         onPanStart: (details) {
-          selectedEntity = _getEntityAtPosition(details.localPosition);
-          if (selectedEntity is Wall) {
-            selectedEntity = (selectedEntity as Wall)
-                .getClosestHandle(details.localPosition);
+          selectedEntity = _getDragHandleAtPosition(details.localPosition);
+          if (selectedEntity != null) {
+            if (selectedEntity is Wall) {
+              selectedEntity = (selectedEntity as Wall)
+                  .getClosestHandle(details.localPosition);
+            }
+            setState(() {});
           }
-          setState(() {});
         },
         onPanUpdate: (details) {
-          selectedEntity?.move(
-            details.delta.dx,
-            details.delta.dy,
-          );
-          setState(() {});
+          if (selectedEntity != null) {
+            selectedEntity?.move(
+              details.delta.dx,
+              details.delta.dy,
+            );
+            setState(() {});
+          }
         },
         onPanEnd: (details) {
           if (selectedEntity != null) {
@@ -91,26 +95,132 @@ class _MyHomePageState extends State<MyHomePage> {
             setState(() {});
           }
         },
-        onLongPressStart: (details) {
-          Wall? wall = _getWallAtPosition(details.localPosition);
-          print(wall);
-          if (wall != null) {
-            var splitWalls = wall.split(wall, details.localPosition);
-            grid.removeEntity(wall);
-            grid.addEntity(splitWalls.$1);
-            grid.addEntity(splitWalls.$2);
-            setState(() {});
+        onTapUp: (details) {
+          Entity? entity = _getWallAtPosition(details.localPosition) ??
+              _getDragHandleAtPosition(details.localPosition);
+          if (entity != null) {
+            if (entity is Wall) {
+              selectedEntity = entity;
+              setState(() {});
+              _openWallContextMenu(entity, details.localPosition);
+            } else if (entity is DragHandle) {
+              _openDragHandleContextMenu(entity, details.localPosition);
+            }
           }
         },
-        child: CustomPaint(
-          size: canvasSize,
-          painter: GridPainter(
-              grid: grid,
-              selectedEntity: selectedEntity,
-              cameraOffset: cameraOffset),
+        // Icon(Icons.drag_indicator)
+        child: Stack(
+          children: [
+            CustomPaint(
+              size: canvasSize,
+              painter: GridPainter(
+                  grid: grid,
+                  selectedEntity: selectedEntity,
+                  cameraOffset: cameraOffset),
+            ),
+            if (selectedEntity != null && selectedEntity is DragHandle)
+              CustomPaint(
+                size: canvasSize,
+                painter: IconPainter(
+                  position:
+                      Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
+                  icon: const Icon(
+                    Icons.zoom_out_map,
+                    color: Colors.yellow,
+                    size: 40,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
+  }
+
+  void _openWallContextMenu(Wall wall, Offset position) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        if (wall.wallState == WallState.active)
+          const PopupMenuItem(
+            value: 'addPoint',
+            child: Text('Add a Point'),
+          ),
+        if (wall.wallState == WallState.active)
+          const PopupMenuItem(
+            value: 'remove',
+            child: Text('Remove Wall'),
+          ),
+        if (wall.wallState == WallState.removed)
+          const PopupMenuItem(
+            value: 'add',
+            child: Text('Add Wall'),
+          ),
+      ],
+    ).then((value) {
+      selectedEntity = null;
+      if (value == 'add') {
+        wall.wallState = WallState.active;
+        setState(() {});
+      } else if (value == 'remove') {
+        wall.wallState = WallState.removed;
+        setState(() {});
+      } else if (value == 'addPoint') {
+        var childWalls = wall.split(wall, position);
+        grid.removeEntity(wall);
+        grid.addEntity(childWalls.$1);
+        grid.addEntity(childWalls.$2);
+        setState(() {});
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  void _openDragHandleContextMenu(DragHandle handle, Offset position) {
+    if (grid.entities.whereType<DragHandle>().toList().length <= 3) return;
+    selectedEntity = handle;
+    setState(() {});
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'remove',
+          child: Text('Remove Point'),
+        ),
+      ],
+    ).then((value) {
+      selectedEntity = null;
+      if (value == 'remove') {
+        final walls = grid.entities
+            .where((e) =>
+                e is Wall &&
+                ((e).handleA.isEqual(handle) || (e).handleB.isEqual(handle)))
+            .cast<Wall>()
+            .toList();
+        final commonHandle = walls.first.handleA.isEqual(handle)
+            ? walls.first.handleB
+            : walls.first.handleA;
+        for (final wall in walls) {
+          wall.replaceHandle(handle, commonHandle);
+        }
+        setState(() {});
+      } else {
+        setState(() {});
+      }
+    });
   }
 
   /// HELPERS
@@ -120,7 +230,6 @@ class _MyHomePageState extends State<MyHomePage> {
     final centerY = canvasSize.height / 2;
     const squareSide = 300.0;
 
-    // Calculate the corner positions of the square
     final topLeft = Offset(centerX - squareSide / 2, centerY - squareSide / 2);
     final topRight = Offset(centerX + squareSide / 2, centerY - squareSide / 2);
     final bottomRight =
@@ -128,7 +237,6 @@ class _MyHomePageState extends State<MyHomePage> {
     final bottomLeft =
         Offset(centerX - squareSide / 2, centerY + squareSide / 2);
 
-    // Create DragHandles at each corner
     final topLeftHandle =
         DragHandle(id: generateGuid(), x: topLeft.dx, y: topLeft.dy);
     final topRightHandle =
@@ -138,33 +246,32 @@ class _MyHomePageState extends State<MyHomePage> {
     final bottomLeftHandle =
         DragHandle(id: generateGuid(), x: bottomLeft.dx, y: bottomLeft.dy);
 
-    // Create the four walls of the square, connecting them by shared handles
     final wall1 = Wall(
       id: generateGuid(),
       thickness: 10,
-      leftHandle: topLeftHandle,
-      rightHandle: topRightHandle,
+      handleA: topLeftHandle,
+      handleB: topRightHandle,
     );
 
     final wall2 = Wall(
       id: generateGuid(),
       thickness: 10,
-      leftHandle: topRightHandle,
-      rightHandle: bottomRightHandle,
+      handleA: topRightHandle,
+      handleB: bottomRightHandle,
     );
 
     final wall3 = Wall(
       id: generateGuid(),
       thickness: 10,
-      leftHandle: bottomRightHandle,
-      rightHandle: bottomLeftHandle,
+      handleA: bottomRightHandle,
+      handleB: bottomLeftHandle,
     );
 
     final wall4 = Wall(
       id: generateGuid(),
       thickness: 10,
-      leftHandle: bottomLeftHandle,
-      rightHandle: topLeftHandle,
+      handleA: bottomLeftHandle,
+      handleB: topLeftHandle,
     );
 
     // Add walls to the grid
@@ -175,18 +282,16 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   // Method to find an entity at a given position with padding
-  Entity? _getEntityAtPosition(Offset position) {
+  DragHandle? _getDragHandleAtPosition(Offset position) {
     final adjustedPosition = position - cameraOffset;
     for (var entity in grid.entities) {
       if (entity is Wall) {
-        if (_comparePositionWithPadding(adjustedPosition, entity.leftHandle)) {
-          return entity.leftHandle;
+        if (_comparePositionWithPadding(adjustedPosition, entity.handleA)) {
+          return entity.handleA;
         } else if (_comparePositionWithPadding(
-            adjustedPosition, entity.rightHandle)) {
-          return entity.rightHandle;
+            adjustedPosition, entity.handleB)) {
+          return entity.handleB;
         }
-      } else if (_comparePositionWithPadding(adjustedPosition, entity)) {
-        return entity;
       }
     }
     return null;

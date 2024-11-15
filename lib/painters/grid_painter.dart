@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sketchbook/models/drag_handle.dart';
-import 'package:sketchbook/models/entity.dart';
+import 'package:sketchbook/models/entities/drag_handle.dart';
+import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/grid.dart';
-import 'package:sketchbook/models/wall.dart';
+import 'package:sketchbook/models/entities/wall.dart';
 
 class GridPainter extends CustomPainter {
   final Entity? selectedEntity;
@@ -62,10 +62,12 @@ class GridPainter extends CustomPainter {
   bool _isSelected(Entity entity) {
     if (selectedEntity != null) {
       if (selectedEntity is DragHandle && entity is Wall) {
-        if (entity.leftHandle.isEqual(selectedEntity!) ||
-            entity.rightHandle.isEqual(selectedEntity!)) {
+        if (entity.handleA.isEqual(selectedEntity!) ||
+            entity.handleB.isEqual(selectedEntity!)) {
           return true;
         }
+      } else if (selectedEntity is Wall && selectedEntity!.isEqual(entity)) {
+        return true;
       }
     }
     return false;

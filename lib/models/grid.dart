@@ -1,4 +1,4 @@
-import 'package:sketchbook/models/entity.dart';
+import 'package:sketchbook/models/entities/entity.dart';
 
 class Grid {
   final double gridWidth;
