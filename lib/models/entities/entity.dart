@@ -1,19 +1,18 @@
 import 'dart:ui';
 
-enum EntityState {
-  normal,
-  focused,
-}
+import 'package:sketchbook/models/enums/entity_state.dart';
 
 abstract class Entity {
   String id;
   double x;
   double y;
+  int zIndex;
 
   Entity({
     required this.id,
     required this.x,
     required this.y,
+    required this.zIndex,
   });
 
   void move(double deltaX, double deltaY) {

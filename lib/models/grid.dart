@@ -12,8 +12,12 @@ class Grid {
     required this.cellSize,
   });
 
-  void addEntity(Entity entity) {
-    entities.add(entity);
+  void addEntity(Entity newEntity) {
+    entities.add(newEntity);
+  }
+
+  void addAllEntity(List<Entity> newEntities) {
+    entities.addAll(newEntities);
   }
 
   void removeEntity(Entity entity) {

@@ -1,0 +1,4 @@
+enum WallState {
+  active,
+  removed,
+}

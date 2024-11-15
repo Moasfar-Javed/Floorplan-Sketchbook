@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 
-class GridPainter extends CustomPainter {
+class BasePainter extends CustomPainter {
   final Entity? selectedEntity;
   final Grid grid;
   final Offset cameraOffset;
 
-  GridPainter({
+  BasePainter({
     required this.grid,
     required this.selectedEntity,
     required this.cameraOffset,
@@ -51,7 +52,10 @@ class GridPainter extends CustomPainter {
       }
     }
 
-    for (var entity in grid.entities) {
+    final sortedEntities = grid.entities
+      ..sort((a, b) => b.zIndex.compareTo(a.zIndex));
+
+    for (var entity in sortedEntities) {
       entity.draw(
         canvas,
         _isSelected(entity) ? EntityState.focused : EntityState.normal,

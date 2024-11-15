@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/entities/internal_wall.dart';
+import 'package:sketchbook/models/enums/wall_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
-import 'package:sketchbook/painters/grid_painter.dart';
-import 'package:sketchbook/painters/overlay_painter.dart';
+import 'package:sketchbook/painters/base_painter.dart';
+import 'package:sketchbook/painters/icon_painter.dart';
+import 'package:sketchbook/sketch_helpers.dart';
 import 'package:uuid/uuid.dart';
 
 const Uuid _uuid = Uuid();
@@ -68,9 +71,56 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: BottomNavigationBar(
+        fixedColor: Colors.black,
+        unselectedItemColor: Colors.black,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        iconSize: 15,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'In-Wall'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Door'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Window'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Equipment'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'M-Point'),
+        ],
+        onTap: (value) {
+          if (value == 0) {
+            grid.addEntity(
+              InternalWall(
+                id: generateGuid(),
+                thickness: 10,
+                handleA: DragHandle(
+                    id: generateGuid(),
+                    x: canvasSize.width / 2,
+                    y: canvasSize.height / 2),
+                handleB: DragHandle(
+                    id: generateGuid(),
+                    x: canvasSize.width / 2,
+                    y: canvasSize.height / 2 + 100),
+              ),
+            );
+            setState(() {});
+          }
+        },
+      ),
       body: GestureDetector(
         onPanStart: (details) {
-          selectedEntity = _getDragHandleAtPosition(details.localPosition);
+          selectedEntity = SketchHelpers.getDragHandleAtPosition(
+                details.localPosition,
+                grid,
+              ) ??
+              SketchHelpers.getWallAtPosition(
+                details.localPosition,
+                grid,
+              ) ??
+              SketchHelpers.getInternalWallAtPosition(
+                details.localPosition,
+                grid,
+              );
+
           if (selectedEntity != null) {
             if (selectedEntity is Wall) {
               selectedEntity = (selectedEntity as Wall)
@@ -96,8 +146,10 @@ class _MyHomePageState extends State<MyHomePage> {
           }
         },
         onTapUp: (details) {
-          Entity? entity = _getWallAtPosition(details.localPosition) ??
-              _getDragHandleAtPosition(details.localPosition);
+          Entity? entity = SketchHelpers.getDragHandleAtPosition(
+                  details.localPosition, grid) ??
+              SketchHelpers.getWallAtPosition(details.localPosition, grid);
+
           if (entity != null) {
             if (entity is Wall) {
               selectedEntity = entity;
@@ -113,7 +165,7 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             CustomPaint(
               size: canvasSize,
-              painter: GridPainter(
+              painter: BasePainter(
                   grid: grid,
                   selectedEntity: selectedEntity,
                   cameraOffset: cameraOffset),
@@ -176,6 +228,8 @@ class _MyHomePageState extends State<MyHomePage> {
         grid.removeEntity(wall);
         grid.addEntity(childWalls.$1);
         grid.addEntity(childWalls.$2);
+        grid.snapEntityToGrid(childWalls.$1);
+        grid.snapEntityToGrid(childWalls.$2);
         setState(() {});
       } else {
         setState(() {});
@@ -184,7 +238,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _openDragHandleContextMenu(DragHandle handle, Offset position) {
-    if (grid.entities.whereType<DragHandle>().toList().length <= 3) return;
+    if (grid.entities.whereType<Wall>().toList().length <= 3) return;
     selectedEntity = handle;
     setState(() {});
     showMenu(
@@ -210,12 +264,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 ((e).handleA.isEqual(handle) || (e).handleB.isEqual(handle)))
             .cast<Wall>()
             .toList();
-        final commonHandle = walls.first.handleA.isEqual(handle)
+        final newCommonHandle = walls.first.handleA.isEqual(handle)
             ? walls.first.handleB
             : walls.first.handleA;
-        for (final wall in walls) {
-          wall.replaceHandle(handle, commonHandle);
-        }
+        walls.last.replaceHandle(handle, newCommonHandle);
+        grid.removeEntity(walls.first);
         setState(() {});
       } else {
         setState(() {});
@@ -224,7 +277,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   /// HELPERS
-
   void _generateInitialSquare() {
     final centerX = canvasSize.width / 2;
     final centerY = canvasSize.height / 2;
@@ -275,43 +327,15 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     // Add walls to the grid
-    grid.addEntity(wall1);
-    grid.addEntity(wall2);
-    grid.addEntity(wall3);
-    grid.addEntity(wall4);
-  }
-
-  // Method to find an entity at a given position with padding
-  DragHandle? _getDragHandleAtPosition(Offset position) {
-    final adjustedPosition = position - cameraOffset;
-    for (var entity in grid.entities) {
-      if (entity is Wall) {
-        if (_comparePositionWithPadding(adjustedPosition, entity.handleA)) {
-          return entity.handleA;
-        } else if (_comparePositionWithPadding(
-            adjustedPosition, entity.handleB)) {
-          return entity.handleB;
-        }
-      }
-    }
-    return null;
-  }
-
-  // Method to get a Wall entity at position
-  Wall? _getWallAtPosition(Offset position) {
-    for (var entity in grid.entities) {
-      if (entity is Wall && entity.contains(position)) {
-        return entity;
-      }
-    }
-    return null;
-  }
-
-  bool _comparePositionWithPadding(Offset position, Entity entity) {
-    const double padding = 20.0; // To increase the touch target
-    return position.dx >= entity.x - padding &&
-        position.dx <= entity.x + padding &&
-        position.dy >= entity.y - padding &&
-        position.dy <= entity.y + padding;
+    grid.addAllEntity([
+      wall1,
+      wall2,
+      wall3,
+      wall4,
+    ]);
+    grid.snapEntityToGrid(wall1);
+    grid.snapEntityToGrid(wall2);
+    grid.snapEntityToGrid(wall3);
+    grid.snapEntityToGrid(wall4);
   }
 }

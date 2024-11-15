@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:sketchbook/models/enums/entity_state.dart';
+import 'package:sketchbook/models/enums/wall_state.dart';
+import 'package:sketchbook/models/enums/z_index.dart';
+import 'package:sketchbook/sketch_helpers.dart';
 import 'package:sketchbook/main.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
 
-enum WallState {
-  active,
-  removed,
-}
+
 
 class Wall extends Entity {
   final double thickness;
@@ -23,6 +24,7 @@ class Wall extends Entity {
   }) : super(
           x: handleA.x,
           y: (handleA.y + handleB.y) / 2,
+          zIndex: ZIndex.wall.value,
         );
 
   double get length => (handleB.x - handleA.x).abs();
@@ -42,6 +44,13 @@ class Wall extends Entity {
       Offset(handleB.x, handleB.y),
       paint,
     );
+    canvas.drawLine(
+      Offset(handleA.x, handleA.y),
+      Offset(handleB.x, handleB.y),
+      Paint()
+        ..color = Colors.transparent
+        ..strokeWidth = thickness + 10,
+    );
 
     // Draw handles
     handleA.draw(canvas, state);
@@ -50,8 +59,8 @@ class Wall extends Entity {
 
   @override
   bool contains(Offset position) {
-    return _distanceToLineSegment(position, Offset(handleA.x, handleA.y),
-            Offset(handleB.x, handleB.y)) <
+    return SketchHelpers.distanceToLineSegment(position,
+            Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
         thickness / 2;
   }
 
@@ -103,32 +112,5 @@ class Wall extends Entity {
     } else if (handleB.isEqual(oldHandle)) {
       handleB = newHandle;
     }
-  }
-
-  // Helper method to calculate the distance from a point to a line segment
-  double _distanceToLineSegment(
-      Offset point, Offset lineStart, Offset lineEnd) {
-    // Handle the case where the line start and end are the same point (no distance)
-    if (lineStart == lineEnd) {
-      return (point - lineStart).distance;
-    }
-
-    // Project the point onto the line defined by lineStart and lineEnd
-    double lineLength = (lineEnd - lineStart).distance;
-    double t = ((point.dx - lineStart.dx) * (lineEnd.dx - lineStart.dx) +
-            (point.dy - lineStart.dy) * (lineEnd.dy - lineStart.dy)) /
-        (lineLength * lineLength);
-
-    // Clamp t to stay within the bounds of the line segment
-    t = t.clamp(0.0, 1.0);
-
-    // Calculate the point on the line closest to the given point
-    Offset closestPoint = Offset(
-      lineStart.dx + t * (lineEnd.dx - lineStart.dx),
-      lineStart.dy + t * (lineEnd.dy - lineStart.dy),
-    );
-
-    // Return the distance from the point to the closest point on the line segment
-    return (point - closestPoint).distance;
   }
 }
