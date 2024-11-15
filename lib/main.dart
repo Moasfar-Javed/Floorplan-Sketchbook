@@ -195,7 +195,7 @@ class _MyHomePageState extends State<MyHomePage> {
   // Method to get a Wall entity at position
   Wall? _getWallAtPosition(Offset position) {
     for (var entity in grid.entities) {
-      if (entity is Wall && _comparePositionWithPadding(position, entity)) {
+      if (entity is Wall && entity.contains(position)) {
         return entity;
       }
     }

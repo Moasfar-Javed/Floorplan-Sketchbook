@@ -101,13 +101,29 @@ class Wall extends Entity {
   }
 
   // Helper method to calculate the distance from a point to a line segment
-  double _distanceToLineSegment(Offset p, Offset a, Offset b) {
-    final ab = b - a;
-    final ap = p - a;
-    double t =
-        (ap.dx * ab.dx + ap.dy * ab.dy) / (ab.dx * ab.dx + ab.dy * ab.dy);
-    t = t.clamp(0.0, 1.0); // Clamp t to be between 0 and 1
-    final closestPoint = Offset(a.dx + t * ab.dx, a.dy + t * ab.dy);
-    return (p - closestPoint).distance;
+  double _distanceToLineSegment(
+      Offset point, Offset lineStart, Offset lineEnd) {
+    // Handle the case where the line start and end are the same point (no distance)
+    if (lineStart == lineEnd) {
+      return (point - lineStart).distance;
+    }
+
+    // Project the point onto the line defined by lineStart and lineEnd
+    double lineLength = (lineEnd - lineStart).distance;
+    double t = ((point.dx - lineStart.dx) * (lineEnd.dx - lineStart.dx) +
+            (point.dy - lineStart.dy) * (lineEnd.dy - lineStart.dy)) /
+        (lineLength * lineLength);
+
+    // Clamp t to stay within the bounds of the line segment
+    t = t.clamp(0.0, 1.0);
+
+    // Calculate the point on the line closest to the given point
+    Offset closestPoint = Offset(
+      lineStart.dx + t * (lineEnd.dx - lineStart.dx),
+      lineStart.dy + t * (lineEnd.dy - lineStart.dy),
+    );
+
+    // Return the distance from the point to the closest point on the line segment
+    return (point - closestPoint).distance;
   }
 }
