@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/entities/internal_wall.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
@@ -17,7 +18,7 @@ class BasePainter extends CustomPainter {
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
+  void paint(Canvas canvas, Size size) async {
     canvas.translate(cameraOffset.dx, cameraOffset.dy);
     final Paint paint = Paint()
       ..color = Colors.grey.shade300
@@ -53,7 +54,7 @@ class BasePainter extends CustomPainter {
     }
 
     final sortedEntities = grid.entities
-      ..sort((a, b) => b.zIndex.compareTo(a.zIndex));
+      ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
     for (var entity in sortedEntities) {
       entity.draw(
@@ -71,6 +72,14 @@ class BasePainter extends CustomPainter {
           return true;
         }
       } else if (selectedEntity is Wall && selectedEntity!.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is DragHandle && entity is InternalWall) {
+        if (entity.handleA.isEqual(selectedEntity!) ||
+            entity.handleB.isEqual(selectedEntity!)) {
+          return true;
+        }
+      } else if (selectedEntity is InternalWall &&
+          selectedEntity!.isEqual(entity)) {
         return true;
       }
     }

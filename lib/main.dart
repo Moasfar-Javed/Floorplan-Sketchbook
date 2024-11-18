@@ -1,7 +1,11 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:sketchbook/models/entities/door.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/entities/internal_wall.dart';
+import 'package:sketchbook/models/enums/handle_type.dart';
 import 'package:sketchbook/models/enums/wall_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
@@ -51,6 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
   late Grid grid;
   Entity? selectedEntity;
   Offset cameraOffset = Offset.zero;
+  ui.Image? loadedDoorAsset;
 
   @override
   void initState() {
@@ -71,55 +76,11 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: BottomNavigationBar(
-        fixedColor: Colors.black,
-        unselectedItemColor: Colors.black,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        selectedFontSize: 10,
-        unselectedFontSize: 10,
-        iconSize: 15,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'In-Wall'),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Door'),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Window'),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Equipment'),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'M-Point'),
-        ],
-        onTap: (value) {
-          if (value == 0) {
-            grid.addEntity(
-              InternalWall(
-                id: generateGuid(),
-                thickness: 10,
-                handleA: DragHandle(
-                    id: generateGuid(),
-                    x: canvasSize.width / 2,
-                    y: canvasSize.height / 2),
-                handleB: DragHandle(
-                    id: generateGuid(),
-                    x: canvasSize.width / 2,
-                    y: canvasSize.height / 2 + 100),
-              ),
-            );
-            setState(() {});
-          }
-        },
-      ),
+      bottomNavigationBar: _buildBottomBar(),
       body: GestureDetector(
         onPanStart: (details) {
-          selectedEntity = SketchHelpers.getDragHandleAtPosition(
-                details.localPosition,
-                grid,
-              ) ??
-              SketchHelpers.getWallAtPosition(
-                details.localPosition,
-                grid,
-              ) ??
-              SketchHelpers.getInternalWallAtPosition(
-                details.localPosition,
-                grid,
-              );
+          selectedEntity =
+              SketchHelpers.getEntityAtPosition(details.localPosition, grid);
 
           if (selectedEntity != null) {
             if (selectedEntity is Wall) {
@@ -146,21 +107,24 @@ class _MyHomePageState extends State<MyHomePage> {
           }
         },
         onTapUp: (details) {
-          Entity? entity = SketchHelpers.getDragHandleAtPosition(
-                  details.localPosition, grid) ??
-              SketchHelpers.getWallAtPosition(details.localPosition, grid);
+          Entity? entity =
+              SketchHelpers.getEntityAtPosition(details.localPosition, grid);
 
           if (entity != null) {
             if (entity is Wall) {
               selectedEntity = entity;
               setState(() {});
               _openWallContextMenu(entity, details.localPosition);
-            } else if (entity is DragHandle) {
+            } else if (entity is DragHandle &&
+                entity.handleType != HandleType.transparent) {
               _openDragHandleContextMenu(entity, details.localPosition);
+            } else if (entity is InternalWall) {
+              _openInternalWallContextMenu(entity, details.localPosition);
+            } else if (entity is Door) {
+              _openDoorContextMenu(entity, details.localPosition);
             }
           }
         },
-        // Icon(Icons.drag_indicator)
         child: Stack(
           children: [
             CustomPaint(
@@ -276,6 +240,75 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void _openInternalWallContextMenu(InternalWall handle, Offset position) {
+    selectedEntity = handle;
+    setState(() {});
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'remove',
+          child: Text('Remove Wall'),
+        ),
+      ],
+    ).then((value) {
+      selectedEntity = null;
+      if (value == 'remove') {
+        final wall =
+            grid.entities.firstWhere((e) => e.isEqual(handle)) as InternalWall;
+        grid.removeEntity(wall);
+        setState(() {});
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  void _openDoorContextMenu(Door handle, Offset position) {
+    selectedEntity = handle;
+    setState(() {});
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'remove',
+          child: Text('Remove Door'),
+        ),
+        const PopupMenuItem(
+          value: 'clockwise',
+          child: Text('Rotate Clockwise'),
+        ),
+        const PopupMenuItem(
+          value: 'counterClockwise',
+          child: Text('Rotate Counter-clockwise'),
+        ),
+      ],
+    ).then((value) {
+      selectedEntity = null;
+      if (value == 'remove') {
+        final wall = grid.entities.firstWhere((e) => e.isEqual(handle)) as Door;
+        grid.removeEntity(wall);
+      } else if (value == 'clockwise') {
+        handle.rotateClockwise();
+      } else if (value == 'counterClockwise') {
+        handle.rotateCounterclockwise();
+      }
+      setState(() {});
+    });
+  }
+
   /// HELPERS
   void _generateInitialSquare() {
     final centerX = canvasSize.width / 2;
@@ -337,5 +370,69 @@ class _MyHomePageState extends State<MyHomePage> {
     grid.snapEntityToGrid(wall2);
     grid.snapEntityToGrid(wall3);
     grid.snapEntityToGrid(wall4);
+  }
+
+  Widget _buildBottomBar() {
+    return BottomNavigationBar(
+      fixedColor: Colors.black,
+      unselectedItemColor: Colors.black,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      selectedFontSize: 10,
+      unselectedFontSize: 10,
+      iconSize: 15,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'In-Wall'),
+        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Door'),
+        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Window'),
+        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Equipment'),
+        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'M-Point'),
+      ],
+      onTap: (value) {
+        if (value == 0) {
+          grid.addEntity(
+            InternalWall(
+              id: generateGuid(),
+              thickness: 10,
+              handleA: DragHandle(
+                  id: generateGuid(),
+                  x: canvasSize.width / 2,
+                  y: canvasSize.height / 2,
+                  handleType: HandleType.transparent),
+              handleB: DragHandle(
+                  id: generateGuid(),
+                  x: canvasSize.width / 2,
+                  y: canvasSize.height / 2 + 100,
+                  handleType: HandleType.transparent),
+            ),
+          );
+          setState(() {});
+        } else if (value == 1) {
+          if (loadedDoorAsset == null) {
+            SketchHelpers.loadImage('assets/door.png').then((e) {
+              grid.addEntity(
+                Door(
+                  id: generateGuid(),
+                  x: canvasSize.width / 2,
+                  y: canvasSize.height / 2,
+                  doorAsset: e,
+                ),
+              );
+              setState(() {});
+            });
+          } else {
+            grid.addEntity(
+              Door(
+                id: generateGuid(),
+                x: canvasSize.width / 2,
+                y: canvasSize.height / 2,
+                doorAsset: loadedDoorAsset!,
+              ),
+            );
+            setState(() {});
+          }
+        }
+      },
+    );
   }
 }

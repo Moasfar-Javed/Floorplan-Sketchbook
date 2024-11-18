@@ -25,29 +25,22 @@ class InternalWall extends Entity {
   bool contains(Offset position) {
     return SketchHelpers.distanceToLineSegment(position,
             Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
-        thickness / 2;
+        thickness / 2 + 20;
   }
 
   @override
   void draw(Canvas canvas, EntityState state) {
     var paint = Paint()..color = Colors.amber;
     paint.strokeWidth = thickness;
-    if (state == EntityState.focused) {
-      handleA.draw(canvas, state);
-      handleB.draw(canvas, state);
-    }
+
     canvas.drawLine(
       Offset(handleA.x, handleA.y),
       Offset(handleB.x, handleB.y),
       paint,
     );
-    canvas.drawLine(
-      Offset(handleA.x, handleA.y),
-      Offset(handleB.x, handleB.y),
-      Paint()
-        ..color = Colors.transparent
-        ..strokeWidth = thickness + 20,
-    );
+
+    handleA.draw(canvas, state);
+    handleB.draw(canvas, state);
   }
 
   @override

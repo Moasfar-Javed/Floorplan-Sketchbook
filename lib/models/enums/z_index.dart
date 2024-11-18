@@ -1,7 +1,8 @@
 // Higher means more on top
 enum ZIndex {
-  wall(2),
+  door(4),
   dragHandle(3),
+  wall(2),
   internalWall(1);
 
   final int value;

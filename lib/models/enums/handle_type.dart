@@ -1,0 +1,4 @@
+enum HandleType {
+  transparent,
+  colored,
+}

@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:sketchbook/models/entities/door.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
+import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/entities/internal_wall.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/grid.dart';
+import 'dart:ui' as ui;
 
 class SketchHelpers {
   // Helper method to calculate the distance from a point to a line segment
@@ -32,10 +35,35 @@ class SketchHelpers {
     return (point - closestPoint).distance;
   }
 
+  static Entity? getEntityAtPosition(Offset position, Grid grid) {
+    return SketchHelpers.getDragHandleAtPosition(
+          position,
+          grid,
+        ) ??
+        SketchHelpers.getInternalWallAtPosition(
+          position,
+          grid,
+        ) ??
+        SketchHelpers.getDoorAtPosition(
+          position,
+          grid,
+        ) ??
+        SketchHelpers.getWallAtPosition(
+          position,
+          grid,
+        );
+  }
+
   static DragHandle? getDragHandleAtPosition(Offset position, Grid grid) {
     final adjustedPosition = position;
     for (var entity in grid.entities) {
       if (entity is Wall) {
+        if (entity.handleA.contains(adjustedPosition)) {
+          return entity.handleA;
+        } else if (entity.handleB.contains(adjustedPosition)) {
+          return entity.handleB;
+        }
+      } else if (entity is InternalWall) {
         if (entity.handleA.contains(adjustedPosition)) {
           return entity.handleA;
         } else if (entity.handleB.contains(adjustedPosition)) {
@@ -46,7 +74,6 @@ class SketchHelpers {
     return null;
   }
 
-  // Method to get a Wall entity at position
   static Wall? getWallAtPosition(Offset position, Grid grid) {
     for (var entity in grid.entities) {
       if (entity is Wall && entity.contains(position)) {
@@ -63,5 +90,21 @@ class SketchHelpers {
       }
     }
     return null;
+  }
+
+  static Door? getDoorAtPosition(Offset position, Grid grid) {
+    for (var entity in grid.entities) {
+      if (entity is Door && entity.contains(position)) {
+        return entity;
+      }
+    }
+    return null;
+  }
+
+  static Future<ui.Image> loadImage(String assetPath) async {
+    final byteData = await rootBundle.load(assetPath);
+    final codec = await ui.instantiateImageCodec(byteData.buffer.asUint8List());
+    final frame = await codec.getNextFrame();
+    return frame.image;
   }
 }

@@ -7,8 +7,6 @@ import 'package:sketchbook/main.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
 
-
-
 class Wall extends Entity {
   final double thickness;
   DragHandle handleA;
@@ -44,15 +42,7 @@ class Wall extends Entity {
       Offset(handleB.x, handleB.y),
       paint,
     );
-    canvas.drawLine(
-      Offset(handleA.x, handleA.y),
-      Offset(handleB.x, handleB.y),
-      Paint()
-        ..color = Colors.transparent
-        ..strokeWidth = thickness + 10,
-    );
 
-    // Draw handles
     handleA.draw(canvas, state);
     handleB.draw(canvas, state);
   }
@@ -61,7 +51,7 @@ class Wall extends Entity {
   bool contains(Offset position) {
     return SketchHelpers.distanceToLineSegment(position,
             Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
-        thickness / 2;
+        thickness / 2 + 10;
   }
 
   DragHandle getClosestHandle(Offset position) {
