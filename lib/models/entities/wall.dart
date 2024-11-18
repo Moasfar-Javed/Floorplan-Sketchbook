@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
+import 'package:sketchbook/models/enums/parent_entity.dart';
 import 'package:sketchbook/models/enums/wall_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 import 'package:sketchbook/sketch_helpers.dart';
@@ -29,7 +30,7 @@ class Wall extends Entity {
 
   @override
   void draw(Canvas canvas, EntityState state) {
-    var paint = Paint()..color = Colors.brown;
+    var paint = Paint()..color = Colors.grey.shade900;
     paint.strokeWidth = thickness;
     if (state == EntityState.focused) {
       paint.color = Colors.blue;
@@ -69,22 +70,23 @@ class Wall extends Entity {
     y = (handleA.y + handleB.y) / 2;
   }
 
-  (Wall, Wall) split(Wall wall, Offset position) {
-    double splitX = position.dx;
-    double splitY = position.dy;
+  (Wall, Wall) split(Wall wall) {
+    double splitX = (wall.handleA.x + wall.handleB.x) / 2;
+    double splitY = (wall.handleA.y + wall.handleB.y) / 2;
 
-    // Create two new walls at the split point
     final commonHandle = DragHandle(
       id: generateGuid(),
       x: splitX,
       y: splitY,
+      parentEntity: ParentEntity.wall,
     );
 
     Wall leftWall = Wall(
-        id: generateGuid(),
-        thickness: wall.thickness,
-        handleA: wall.handleA,
-        handleB: commonHandle);
+      id: generateGuid(),
+      thickness: wall.thickness,
+      handleA: wall.handleA,
+      handleB: commonHandle,
+    );
 
     Wall rightWall = Wall(
       id: generateGuid(),

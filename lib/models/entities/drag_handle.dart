@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/handle_type.dart';
+import 'package:sketchbook/models/enums/parent_entity.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class DragHandle extends Entity {
   static const double handleSize = 8;
   final HandleType handleType;
+  final ParentEntity parentEntity;
 
   DragHandle({
     required super.id,
     required super.x,
     required super.y,
+    required this.parentEntity,
     this.handleType = HandleType.colored,
   }) : super(
           zIndex: ZIndex.dragHandle.value,
@@ -19,7 +22,8 @@ class DragHandle extends Entity {
 
   @override
   bool contains(Offset position) {
-    const double hitAreaRadius = handleSize + 20;
+    double hitAreaRadius =
+        handleSize + (parentEntity == ParentEntity.window ? 5 : 20);
     return (position - Offset(x, y)).distance <= hitAreaRadius;
   }
 

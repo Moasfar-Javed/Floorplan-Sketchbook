@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/door.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/entities/equipment.dart';
 import 'package:sketchbook/models/entities/internal_wall.dart';
+import 'package:sketchbook/models/entities/moisture_point.dart';
+import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/handle_type.dart';
+import 'package:sketchbook/models/enums/parent_entity.dart';
 import 'package:sketchbook/models/enums/wall_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
@@ -50,326 +54,292 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage>
+    with AutomaticKeepAliveClientMixin {
   late Size canvasSize;
   late Grid grid;
+  bool initialized = false;
   Entity? selectedEntity;
   Offset cameraOffset = Offset.zero;
   ui.Image? loadedDoorAsset;
+  ui.Image? loadedEquipmentAsset;
+  ui.Image? loadedActiveEquipmentAsset;
+  ui.Image? loadedMPAsset;
+  ui.Image? loadedActiveMPAsset;
 
   @override
-  void initState() {
-    super.initState();
-  }
+  bool get wantKeepAlive => true;
 
   @override
   void didChangeDependencies() {
-    canvasSize = MediaQuery.of(context).size;
-    grid = Grid(
-        gridWidth: canvasSize.width,
-        gridHeight: canvasSize.height,
-        cellSize: 20);
-    _generateInitialSquare();
+    if (!initialized) {
+      initialized = true;
+      canvasSize = MediaQuery.of(context).size;
+      grid = Grid(
+          gridWidth: canvasSize.width,
+          gridHeight: canvasSize.height,
+          cellSize: 20);
+      SketchHelpers.generateInitialSquare(grid, canvasSize);
+    }
     super.didChangeDependencies();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       bottomNavigationBar: _buildBottomBar(),
-      body: GestureDetector(
-        onPanStart: (details) {
-          selectedEntity =
-              SketchHelpers.getEntityAtPosition(details.localPosition, grid);
-
-          if (selectedEntity != null) {
-            if (selectedEntity is Wall) {
-              selectedEntity = (selectedEntity as Wall)
-                  .getClosestHandle(details.localPosition);
-            }
-            setState(() {});
-          }
-        },
-        onPanUpdate: (details) {
-          if (selectedEntity != null) {
-            selectedEntity?.move(
-              details.delta.dx,
-              details.delta.dy,
-            );
-            setState(() {});
-          }
-        },
-        onPanEnd: (details) {
-          if (selectedEntity != null) {
-            grid.snapEntityToGrid(selectedEntity!);
-            selectedEntity = null;
-            setState(() {});
-          }
-        },
-        onTapUp: (details) {
-          Entity? entity =
-              SketchHelpers.getEntityAtPosition(details.localPosition, grid);
-
-          if (entity != null) {
-            if (entity is Wall) {
-              selectedEntity = entity;
-              setState(() {});
-              _openWallContextMenu(entity, details.localPosition);
-            } else if (entity is DragHandle &&
-                entity.handleType != HandleType.transparent) {
-              _openDragHandleContextMenu(entity, details.localPosition);
-            } else if (entity is InternalWall) {
-              _openInternalWallContextMenu(entity, details.localPosition);
-            } else if (entity is Door) {
-              _openDoorContextMenu(entity, details.localPosition);
-            }
-          }
-        },
+      body: SafeArea(
         child: Stack(
           children: [
-            CustomPaint(
-              size: canvasSize,
-              painter: BasePainter(
-                  grid: grid,
-                  selectedEntity: selectedEntity,
-                  cameraOffset: cameraOffset),
-            ),
-            if (selectedEntity != null && selectedEntity is DragHandle)
-              CustomPaint(
-                size: canvasSize,
-                painter: IconPainter(
-                  position:
-                      Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
-                  icon: const Icon(
-                    Icons.zoom_out_map,
-                    color: Colors.yellow,
-                    size: 40,
+            GestureDetector(
+              onPanUpdate: (details) {
+                if (selectedEntity != null) {
+                  selectedEntity?.move(
+                    details.delta.dx,
+                    details.delta.dy,
+                  );
+                  setState(() {});
+                }
+              },
+              onPanEnd: (details) {
+                if (selectedEntity != null) {
+                  grid.snapEntityToGrid(selectedEntity!);
+                  setState(() {});
+                }
+              },
+              onTapUp: (details) {
+                selectedEntity = SketchHelpers.getEntityAtPosition(
+                    details.localPosition, grid);
+                setState(() {});
+              },
+              child: Stack(
+                children: [
+                  CustomPaint(
+                    size: canvasSize,
+                    painter: BasePainter(
+                        grid: grid,
+                        selectedEntity: selectedEntity,
+                        cameraOffset: cameraOffset),
                   ),
-                ),
+                  if (selectedEntity != null && selectedEntity is DragHandle)
+                    CustomPaint(
+                      size: canvasSize,
+                      painter: IconPainter(
+                        position: Offset(
+                            selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
+                        icon: const Icon(
+                          Icons.zoom_out_map,
+                          color: Colors.yellow,
+                          size: 40,
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
+            _buildContextButtons()
           ],
         ),
       ),
     );
   }
 
-  void _openWallContextMenu(Wall wall, Offset position) {
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        if (wall.wallState == WallState.active)
-          const PopupMenuItem(
-            value: 'addPoint',
-            child: Text('Add a Point'),
+  _buildContextButtons() {
+//----------
+//WALL
+//----------
+    if (selectedEntity is Wall) {
+      final wall = selectedEntity as Wall;
+
+      return Row(
+        children: [
+          if (wall.wallState == WallState.active)
+            TextButton(
+              child: const Text('Add a Point'),
+              onPressed: () {
+                var childWalls = wall.split(wall);
+                grid.removeEntity(wall);
+                grid.addEntity(childWalls.$1);
+                grid.addEntity(childWalls.$2);
+                grid.snapEntityToGrid(childWalls.$1);
+                grid.snapEntityToGrid(childWalls.$2);
+                selectedEntity = null;
+                setState(() {});
+              },
+            ),
+          if (wall.wallState == WallState.active)
+            TextButton(
+              child: const Text('Remove Wall'),
+              onPressed: () {
+                wall.wallState = WallState.removed;
+                setState(() {});
+              },
+            ),
+          if (wall.wallState == WallState.removed)
+            TextButton(
+              child: const Text('Add Wall'),
+              onPressed: () {
+                wall.wallState = WallState.active;
+                setState(() {});
+              },
+            ),
+        ],
+      );
+    }
+//----------
+//DRAG HANDLE
+//----------
+    else if (selectedEntity is DragHandle &&
+        (selectedEntity as DragHandle).parentEntity == ParentEntity.wall &&
+        grid.entities.whereType<Wall>().toList().length > 3) {
+      final handle = selectedEntity as DragHandle;
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Remove Point'),
+            onPressed: () {
+              final walls = grid.entities
+                  .where((e) =>
+                      e is Wall &&
+                      ((e).handleA.isEqual(handle) ||
+                          (e).handleB.isEqual(handle)))
+                  .cast<Wall>()
+                  .toList();
+              final newCommonHandle = walls.first.handleA.isEqual(handle)
+                  ? walls.first.handleB
+                  : walls.first.handleA;
+              walls.last.replaceHandle(handle, newCommonHandle);
+              grid.removeEntity(walls.first);
+              selectedEntity = null;
+              setState(() {});
+            },
           ),
-        if (wall.wallState == WallState.active)
-          const PopupMenuItem(
-            value: 'remove',
-            child: Text('Remove Wall'),
+        ],
+      );
+    }
+//----------
+//INTERNAL WALL
+//----------
+    else if (selectedEntity is InternalWall) {
+      final inWall = selectedEntity as InternalWall;
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Remove Wall'),
+            onPressed: () {
+              grid.removeEntity(inWall);
+              selectedEntity = null;
+              setState(() {});
+            },
           ),
-        if (wall.wallState == WallState.removed)
-          const PopupMenuItem(
-            value: 'add',
-            child: Text('Add Wall'),
+        ],
+      );
+    }
+//----------
+//DOOR
+//----------
+    else if (selectedEntity is Door) {
+      final door = selectedEntity as Door;
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Remove'),
+            onPressed: () {
+              grid.removeEntity(door);
+              selectedEntity = null;
+              setState(() {});
+            },
           ),
-      ],
-    ).then((value) {
-      selectedEntity = null;
-      if (value == 'add') {
-        wall.wallState = WallState.active;
-        setState(() {});
-      } else if (value == 'remove') {
-        wall.wallState = WallState.removed;
-        setState(() {});
-      } else if (value == 'addPoint') {
-        var childWalls = wall.split(wall, position);
-        grid.removeEntity(wall);
-        grid.addEntity(childWalls.$1);
-        grid.addEntity(childWalls.$2);
-        grid.snapEntityToGrid(childWalls.$1);
-        grid.snapEntityToGrid(childWalls.$2);
-        setState(() {});
-      } else {
-        setState(() {});
-      }
-    });
-  }
-
-  void _openDragHandleContextMenu(DragHandle handle, Offset position) {
-    if (grid.entities.whereType<Wall>().toList().length <= 3) return;
-    selectedEntity = handle;
-    setState(() {});
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        const PopupMenuItem(
-          value: 'remove',
-          child: Text('Remove Point'),
-        ),
-      ],
-    ).then((value) {
-      selectedEntity = null;
-      if (value == 'remove') {
-        final walls = grid.entities
-            .where((e) =>
-                e is Wall &&
-                ((e).handleA.isEqual(handle) || (e).handleB.isEqual(handle)))
-            .cast<Wall>()
-            .toList();
-        final newCommonHandle = walls.first.handleA.isEqual(handle)
-            ? walls.first.handleB
-            : walls.first.handleA;
-        walls.last.replaceHandle(handle, newCommonHandle);
-        grid.removeEntity(walls.first);
-        setState(() {});
-      } else {
-        setState(() {});
-      }
-    });
-  }
-
-  void _openInternalWallContextMenu(InternalWall handle, Offset position) {
-    selectedEntity = handle;
-    setState(() {});
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        const PopupMenuItem(
-          value: 'remove',
-          child: Text('Remove Wall'),
-        ),
-      ],
-    ).then((value) {
-      selectedEntity = null;
-      if (value == 'remove') {
-        final wall =
-            grid.entities.firstWhere((e) => e.isEqual(handle)) as InternalWall;
-        grid.removeEntity(wall);
-        setState(() {});
-      } else {
-        setState(() {});
-      }
-    });
-  }
-
-  void _openDoorContextMenu(Door handle, Offset position) {
-    selectedEntity = handle;
-    setState(() {});
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        const PopupMenuItem(
-          value: 'remove',
-          child: Text('Remove Door'),
-        ),
-        const PopupMenuItem(
-          value: 'clockwise',
-          child: Text('Rotate Clockwise'),
-        ),
-        const PopupMenuItem(
-          value: 'counterClockwise',
-          child: Text('Rotate Counter-clockwise'),
-        ),
-      ],
-    ).then((value) {
-      selectedEntity = null;
-      if (value == 'remove') {
-        final wall = grid.entities.firstWhere((e) => e.isEqual(handle)) as Door;
-        grid.removeEntity(wall);
-      } else if (value == 'clockwise') {
-        handle.rotateClockwise();
-      } else if (value == 'counterClockwise') {
-        handle.rotateCounterclockwise();
-      }
-      setState(() {});
-    });
-  }
-
-  /// HELPERS
-  void _generateInitialSquare() {
-    final centerX = canvasSize.width / 2;
-    final centerY = canvasSize.height / 2;
-    const squareSide = 300.0;
-
-    final topLeft = Offset(centerX - squareSide / 2, centerY - squareSide / 2);
-    final topRight = Offset(centerX + squareSide / 2, centerY - squareSide / 2);
-    final bottomRight =
-        Offset(centerX + squareSide / 2, centerY + squareSide / 2);
-    final bottomLeft =
-        Offset(centerX - squareSide / 2, centerY + squareSide / 2);
-
-    final topLeftHandle =
-        DragHandle(id: generateGuid(), x: topLeft.dx, y: topLeft.dy);
-    final topRightHandle =
-        DragHandle(id: generateGuid(), x: topRight.dx, y: topRight.dy);
-    final bottomRightHandle =
-        DragHandle(id: generateGuid(), x: bottomRight.dx, y: bottomRight.dy);
-    final bottomLeftHandle =
-        DragHandle(id: generateGuid(), x: bottomLeft.dx, y: bottomLeft.dy);
-
-    final wall1 = Wall(
-      id: generateGuid(),
-      thickness: 10,
-      handleA: topLeftHandle,
-      handleB: topRightHandle,
-    );
-
-    final wall2 = Wall(
-      id: generateGuid(),
-      thickness: 10,
-      handleA: topRightHandle,
-      handleB: bottomRightHandle,
-    );
-
-    final wall3 = Wall(
-      id: generateGuid(),
-      thickness: 10,
-      handleA: bottomRightHandle,
-      handleB: bottomLeftHandle,
-    );
-
-    final wall4 = Wall(
-      id: generateGuid(),
-      thickness: 10,
-      handleA: bottomLeftHandle,
-      handleB: topLeftHandle,
-    );
-
-    // Add walls to the grid
-    grid.addAllEntity([
-      wall1,
-      wall2,
-      wall3,
-      wall4,
-    ]);
-    grid.snapEntityToGrid(wall1);
-    grid.snapEntityToGrid(wall2);
-    grid.snapEntityToGrid(wall3);
-    grid.snapEntityToGrid(wall4);
+          TextButton(
+            child: const Text('Rotate Right'),
+            onPressed: () {
+              door.rotateClockwise();
+              setState(() {});
+            },
+          ),
+          TextButton(
+            child: const Text('Rotate Left'),
+            onPressed: () {
+              door.rotateCounterclockwise();
+              setState(() {});
+            },
+          ),
+        ],
+      );
+    }
+//----------
+//WINDOW
+//----------
+    else if (selectedEntity is Window) {
+      final window = selectedEntity as Window;
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Remove'),
+            onPressed: () {
+              grid.removeEntity(window);
+              selectedEntity = null;
+              setState(() {});
+            },
+          ),
+        ],
+      );
+    }
+//----------
+//EQUIPMENT
+//----------
+    else if (selectedEntity is Equipment) {
+      final equipment = selectedEntity as Equipment;
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Change Value'),
+            onPressed: () async {
+              final newVal = await showInputDialog(context, equipment.label);
+              equipment.updateValue(newVal);
+              setState(() {});
+            },
+          ),
+          TextButton(
+            child: const Text('Remove'),
+            onPressed: () {
+              grid.removeEntity(equipment);
+              selectedEntity = null;
+              setState(() {});
+            },
+          ),
+        ],
+      );
+    }
+//----------
+//MOISTURE POINT
+//----------
+    else if (selectedEntity is MoisturePoint) {
+      final mp = selectedEntity as MoisturePoint;
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Change Value'),
+            onPressed: () async {
+              final newVal = await showInputDialog(context, mp.label);
+              mp.updateValue(newVal);
+              setState(() {});
+            },
+          ),
+          TextButton(
+            child: const Text('Remove'),
+            onPressed: () {
+              grid.removeEntity(mp);
+              selectedEntity = null;
+              setState(() {});
+            },
+          ),
+        ],
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
   }
 
   Widget _buildBottomBar() {
@@ -388,51 +358,142 @@ class _MyHomePageState extends State<MyHomePage> {
         BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Equipment'),
         BottomNavigationBarItem(icon: Icon(Icons.star), label: 'M-Point'),
       ],
-      onTap: (value) {
+      onTap: (value) async {
         if (value == 0) {
-          grid.addEntity(
-            InternalWall(
+          final inWall = InternalWall(
+            id: generateGuid(),
+            thickness: 10,
+            handleA: DragHandle(
               id: generateGuid(),
-              thickness: 10,
-              handleA: DragHandle(
-                  id: generateGuid(),
-                  x: canvasSize.width / 2,
-                  y: canvasSize.height / 2,
-                  handleType: HandleType.transparent),
-              handleB: DragHandle(
-                  id: generateGuid(),
-                  x: canvasSize.width / 2,
-                  y: canvasSize.height / 2 + 100,
-                  handleType: HandleType.transparent),
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2,
+              parentEntity: ParentEntity.internalWall,
+              handleType: HandleType.transparent,
+            ),
+            handleB: DragHandle(
+              id: generateGuid(),
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2 + 100,
+              parentEntity: ParentEntity.internalWall,
+              handleType: HandleType.transparent,
             ),
           );
-          setState(() {});
+          grid.addEntity(inWall);
+          setState(() {
+            selectedEntity = inWall;
+          });
         } else if (value == 1) {
-          if (loadedDoorAsset == null) {
-            SketchHelpers.loadImage('assets/door.png').then((e) {
-              grid.addEntity(
-                Door(
-                  id: generateGuid(),
-                  x: canvasSize.width / 2,
-                  y: canvasSize.height / 2,
-                  doorAsset: e,
-                ),
-              );
-              setState(() {});
-            });
-          } else {
-            grid.addEntity(
-              Door(
-                id: generateGuid(),
-                x: canvasSize.width / 2,
-                y: canvasSize.height / 2,
-                doorAsset: loadedDoorAsset!,
-              ),
-            );
-            setState(() {});
-          }
+          loadedDoorAsset = loadedDoorAsset ??
+              await SketchHelpers.loadImage('assets/door.png');
+
+          final door = Door(
+            id: generateGuid(),
+            x: canvasSize.width / 2,
+            y: canvasSize.height / 2,
+            doorAsset: loadedDoorAsset!,
+          );
+          grid.addEntity(door);
+          setState(() {
+            selectedEntity = door;
+          });
+        } else if (value == 2) {
+          final window = Window(
+            id: generateGuid(),
+            thickness: 15,
+            handleA: DragHandle(
+              id: generateGuid(),
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2,
+              parentEntity: ParentEntity.window,
+              handleType: HandleType.transparent,
+            ),
+            handleB: DragHandle(
+              id: generateGuid(),
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2 + 40,
+              parentEntity: ParentEntity.window,
+              handleType: HandleType.transparent,
+            ),
+          );
+          grid.addEntity(window);
+          setState(() {
+            selectedEntity = window;
+          });
+        } else if (value == 3) {
+          loadedEquipmentAsset = loadedEquipmentAsset ??
+              await SketchHelpers.loadImage('assets/equipment.png');
+          loadedActiveEquipmentAsset = loadedActiveEquipmentAsset ??
+              await SketchHelpers.loadImage('assets/equipment_active.png');
+
+          final equipment = Equipment(
+            label: '2',
+            id: generateGuid(),
+            x: canvasSize.width / 2,
+            y: canvasSize.height / 2,
+            equipmentAsset: loadedEquipmentAsset!,
+            activeEquipmentAsset: loadedActiveEquipmentAsset!,
+          );
+          grid.addEntity(equipment);
+          setState(() {
+            selectedEntity = equipment;
+          });
+        } else if (value == 4) {
+          loadedMPAsset = loadedMPAsset ??
+              await SketchHelpers.loadImage('assets/moisture.png');
+          loadedActiveMPAsset = loadedActiveMPAsset ??
+              await SketchHelpers.loadImage('assets/moisture_active.png');
+
+          final equipment = Equipment(
+            label: '2',
+            id: generateGuid(),
+            x: canvasSize.width / 2,
+            y: canvasSize.height / 2,
+            equipmentAsset: loadedMPAsset!,
+            activeEquipmentAsset: loadedActiveMPAsset!,
+          );
+          grid.addEntity(equipment);
+          setState(() {
+            selectedEntity = equipment;
+          });
         }
       },
     );
   }
+}
+
+Future<String?> showInputDialog(BuildContext context, String? preValue) async {
+  TextEditingController textController =
+      TextEditingController(text: preValue ?? '');
+
+  String? result = await showDialog<String>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Enter Value'),
+        content: TextField(
+          controller: textController,
+          decoration: const InputDecoration(
+            hintText: 'Type here...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(null); // Return null on cancel
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context)
+                  .pop(textController.text); // Return entered text on save
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      );
+    },
+  );
+
+  return result; // Return the result (entered text or null)
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/entities/equipment.dart';
 import 'package:sketchbook/models/entities/internal_wall.dart';
+import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
@@ -80,6 +82,16 @@ class BasePainter extends CustomPainter {
         }
       } else if (selectedEntity is InternalWall &&
           selectedEntity!.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is DragHandle && entity is Window) {
+        if (entity.handleA.isEqual(selectedEntity!) ||
+            entity.handleB.isEqual(selectedEntity!)) {
+          return true;
+        }
+      } else if (selectedEntity is Equipment &&
+          selectedEntity!.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is Window && selectedEntity!.isEqual(entity)) {
         return true;
       }
     }

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/direction_state.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 import 'package:sketchbook/sketch_helpers.dart';
 
-class InternalWall extends Entity {
+class Window extends Entity {
   final double thickness;
   DragHandle handleA;
   DragHandle handleB;
+  DirectionState directionState = DirectionState.vertical;
 
-  InternalWall({
+  Window({
     required super.id,
     required this.thickness,
     required this.handleA,
@@ -18,19 +20,19 @@ class InternalWall extends Entity {
   }) : super(
           x: handleA.x,
           y: (handleA.y + handleB.y) / 2,
-          zIndex: ZIndex.internalWall.value,
+          zIndex: ZIndex.window.value,
         );
 
   @override
   bool contains(Offset position) {
     return SketchHelpers.distanceToLineSegment(position,
             Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
-        thickness / 2 + 10;
+        thickness / 2 + 20;
   }
 
   @override
   void draw(Canvas canvas, EntityState state) {
-    var paint = Paint()..color = Colors.amber;
+    var paint = Paint()..color = Colors.purpleAccent;
     paint.strokeWidth = thickness;
 
     canvas.drawLine(
