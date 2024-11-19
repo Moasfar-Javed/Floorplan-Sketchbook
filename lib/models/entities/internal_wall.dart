@@ -30,7 +30,10 @@ class InternalWall extends Entity {
 
   @override
   void draw(Canvas canvas, EntityState state) {
-    var paint = Paint()..color = Colors.amber;
+    var paint = Paint()..color = Colors.black;
+    if (state == EntityState.focused) {
+      paint.color = const Color(0xFFA7C1F7);
+    }
     paint.strokeWidth = thickness;
 
     canvas.drawLine(

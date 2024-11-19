@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sketchbook/models/entities/door.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/entities/equipment.dart';
@@ -116,6 +117,8 @@ class BasePainter extends CustomPainter {
           selectedEntity!.isEqual(entity)) {
         return true;
       } else if (selectedEntity is Window && selectedEntity!.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is Door && selectedEntity!.isEqual(entity)) {
         return true;
       }
     }
