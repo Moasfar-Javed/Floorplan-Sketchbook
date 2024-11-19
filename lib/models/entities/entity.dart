@@ -20,6 +20,10 @@ abstract class Entity {
     y += deltaY;
   }
 
+  Offset position() {
+    return Offset(x, y);
+  }
+
   void draw(Canvas canvas, EntityState state);
 
   bool contains(Offset position);

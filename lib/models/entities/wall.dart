@@ -30,22 +30,67 @@ class Wall extends Entity {
 
   @override
   void draw(Canvas canvas, EntityState state) {
-    var paint = Paint()..color = Colors.grey.shade900;
-    paint.strokeWidth = thickness;
-    if (state == EntityState.focused) {
-      paint.color = Colors.blue;
-    }
     if (wallState == WallState.removed) {
-      paint.color = Colors.grey.shade300;
-    }
-    canvas.drawLine(
-      Offset(handleA.x, handleA.y),
-      Offset(handleB.x, handleB.y),
-      paint,
-    );
+      var paint = Paint()
+        ..color = state == EntityState.focused
+            ? Colors.grey.shade500
+            : Colors.grey.shade300
+        ..strokeWidth = thickness
+        ..style = PaintingStyle.stroke;
 
+      _drawDashedLine(canvas, paint, handleA.position(), handleB.position(),
+          dashLength: 20, gapLength: 5);
+    } else {
+      var paint = Paint()
+        ..color = Colors.black
+        ..strokeWidth = thickness;
+
+      // If the entity is focused, draw the blue line with a black border
+      if (state == EntityState.focused) {
+        paint.color = const Color(0xFFA7C1F7); // Light blue color
+        final borderPaint = Paint()..color = Colors.black;
+        borderPaint.strokeWidth = thickness + 3; // Border width
+        canvas.drawLine(
+          Offset(handleA.x, handleA.y),
+          Offset(handleB.x, handleB.y),
+          borderPaint,
+        );
+      }
+      canvas.drawLine(
+        Offset(handleA.x, handleA.y),
+        Offset(handleB.x, handleB.y),
+        paint,
+      );
+    }
+
+    // If the wall state is removed, draw a dotted line
+
+    // Draw handles (unchanged)
     handleA.draw(canvas, state);
     handleB.draw(canvas, state);
+  }
+
+// Helper function to draw a dashed line
+  void _drawDashedLine(Canvas canvas, Paint paint, Offset start, Offset end,
+      {double dashLength = 10.0, double gapLength = 5.0}) {
+    double distance = (end - start).distance;
+    double dashCount = (distance / (dashLength + gapLength)).floorToDouble();
+
+    for (int i = 0; i < dashCount; i++) {
+      double startX = start.dx + i * (dashLength + gapLength);
+      double endX = startX + dashLength;
+
+      if (endX > end.dx) {
+        endX = end.dx;
+      }
+
+      // Draw each dash
+      canvas.drawLine(
+        Offset(startX, start.dy),
+        Offset(endX, start.dy),
+        paint,
+      );
+    }
   }
 
   @override
@@ -71,13 +116,12 @@ class Wall extends Entity {
   }
 
   (Wall, Wall) split(Wall wall) {
-    double splitX = (wall.handleA.x + wall.handleB.x) / 2;
-    double splitY = (wall.handleA.y + wall.handleB.y) / 2;
+    Offset center = getCenter(wall);
 
     final commonHandle = DragHandle(
       id: generateGuid(),
-      x: splitX,
-      y: splitY,
+      x: center.dx,
+      y: center.dy,
       parentEntity: ParentEntity.wall,
     );
 
@@ -104,5 +148,10 @@ class Wall extends Entity {
     } else if (handleB.isEqual(oldHandle)) {
       handleB = newHandle;
     }
+  }
+
+  Offset getCenter(wall) {
+    return Offset((wall.handleA.x + wall.handleB.x) / 2,
+        (wall.handleA.y + wall.handleB.y) / 2);
   }
 }

@@ -3,14 +3,17 @@ import 'package:flutter/material.dart';
 class IconPainter extends CustomPainter {
   final Offset position;
   final Icon icon;
+  final Offset cameraOffset;
 
   IconPainter({
     required this.position,
     required this.icon,
+    required this.cameraOffset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.translate(cameraOffset.dx, cameraOffset.dy);
     if (position != Offset.zero) {
       final textPainter = TextPainter(
         text: TextSpan(

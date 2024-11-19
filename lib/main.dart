@@ -62,6 +62,7 @@ class _MyHomePageState extends State<MyHomePage>
   Entity? selectedEntity;
   Offset cameraOffset = Offset.zero;
   ui.Image? loadedDoorAsset;
+  ui.Image? loadedActiveDoorAsset;
   ui.Image? loadedEquipmentAsset;
   ui.Image? loadedActiveEquipmentAsset;
   ui.Image? loadedMPAsset;
@@ -122,19 +123,7 @@ class _MyHomePageState extends State<MyHomePage>
                         selectedEntity: selectedEntity,
                         cameraOffset: cameraOffset),
                   ),
-                  if (selectedEntity != null && selectedEntity is DragHandle)
-                    CustomPaint(
-                      size: canvasSize,
-                      painter: IconPainter(
-                        position: Offset(
-                            selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
-                        icon: const Icon(
-                          Icons.zoom_out_map,
-                          color: Colors.yellow,
-                          size: 40,
-                        ),
-                      ),
-                    ),
+                  _buildOverlayIcon(),
                 ],
               ),
             ),
@@ -143,6 +132,39 @@ class _MyHomePageState extends State<MyHomePage>
         ),
       ),
     );
+  }
+
+  Widget _buildOverlayIcon() {
+    if (selectedEntity != null) {
+      if (selectedEntity is DragHandle) {
+        return CustomPaint(
+          size: canvasSize,
+          painter: IconPainter(
+            cameraOffset: cameraOffset,
+            position: Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
+            icon: const Icon(
+              Icons.zoom_out_map,
+              color: Color(0xFF2463EB),
+              size: 40,
+            ),
+          ),
+        );
+      } else if (selectedEntity is Wall) {
+        return CustomPaint(
+          size: canvasSize,
+          painter: IconPainter(
+            cameraOffset: cameraOffset,
+            position: (selectedEntity as Wall).getCenter(selectedEntity),
+            icon: const Icon(
+              Icons.zoom_out_map,
+              color: Color(0xFF2463EB),
+              size: 40,
+            ),
+          ),
+        );
+      }
+    }
+    return const SizedBox.shrink();
   }
 
   _buildContextButtons() {
@@ -170,7 +192,7 @@ class _MyHomePageState extends State<MyHomePage>
             ),
           if (wall.wallState == WallState.active)
             TextButton(
-              child: const Text('Remove Wall'),
+              child: const Text('Open Wall'),
               onPressed: () {
                 wall.wallState = WallState.removed;
                 setState(() {});
@@ -178,7 +200,7 @@ class _MyHomePageState extends State<MyHomePage>
             ),
           if (wall.wallState == WallState.removed)
             TextButton(
-              child: const Text('Add Wall'),
+              child: const Text('Close Wall'),
               onPressed: () {
                 wall.wallState = WallState.active;
                 setState(() {});
@@ -385,12 +407,14 @@ class _MyHomePageState extends State<MyHomePage>
         } else if (value == 1) {
           loadedDoorAsset = loadedDoorAsset ??
               await SketchHelpers.loadImage('assets/door.png');
-
+          loadedActiveDoorAsset = loadedActiveDoorAsset ??
+              await SketchHelpers.loadImage('assets/door_active.png');
           final door = Door(
             id: generateGuid(),
             x: canvasSize.width / 2,
             y: canvasSize.height / 2,
             doorAsset: loadedDoorAsset!,
+            doorActiveAsset: loadedActiveDoorAsset!,
           );
           grid.addEntity(door);
           setState(() {

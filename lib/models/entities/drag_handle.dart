@@ -6,7 +6,7 @@ import 'package:sketchbook/models/enums/parent_entity.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class DragHandle extends Entity {
-  static const double handleSize = 8;
+  static const double handleSize = 6;
   final HandleType handleType;
   final ParentEntity parentEntity;
 
@@ -30,11 +30,9 @@ class DragHandle extends Entity {
   @override
   void draw(Canvas canvas, EntityState state) {
     final paint = Paint()
-      ..color = state == EntityState.focused
-          ? Colors.pink
-          : handleType == HandleType.transparent
-              ? Colors.transparent
-              : Colors.green;
+      ..color = handleType == HandleType.transparent
+          ? Colors.transparent
+          : Colors.white;
 
     canvas.drawCircle(Offset(x, y), handleSize, paint);
   }

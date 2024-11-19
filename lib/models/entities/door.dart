@@ -9,6 +9,7 @@ import 'package:sketchbook/models/enums/z_index.dart';
 class Door extends Entity {
   static const double size = 40;
   final ui.Image doorAsset;
+  final ui.Image doorActiveAsset;
   double rotation = 0;
 
   Door({
@@ -16,6 +17,7 @@ class Door extends Entity {
     required super.x,
     required super.y,
     required this.doorAsset,
+    required this.doorActiveAsset,
   }) : super(
           zIndex: ZIndex.door.value,
         );
@@ -29,8 +31,9 @@ class Door extends Entity {
   @override
   void draw(Canvas canvas, EntityState state) {
     final paint = Paint();
-    final imageWidth = doorAsset.width.toDouble();
-    final imageHeight = doorAsset.height.toDouble();
+    final asset = state == EntityState.focused ? doorActiveAsset : doorAsset;
+    final imageWidth = asset.width.toDouble();
+    final imageHeight = asset.height.toDouble();
     final scaleX = size / imageWidth;
     final scaleY = size / imageHeight;
 
@@ -43,7 +46,7 @@ class Door extends Entity {
     canvas.save();
     canvas.transform(matrix.storage);
     canvas.drawImage(
-      doorAsset,
+      asset,
       const Offset(0, 0),
       paint,
     );
