@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:sketchbook/file_util.dart';
 import 'package:sketchbook/models/entities/door.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
@@ -25,9 +27,8 @@ String generateGuid() {
   return id;
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   runApp(const MyApp());
 }
 
@@ -55,12 +56,15 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
   late Size canvasSize;
   late Grid grid;
+  final TransformationController _transformationController =
+      TransformationController();
+
   bool initialized = false;
   Entity? selectedEntity;
-  Offset cameraOffset = Offset.zero;
   ui.Image? loadedDoorAsset;
   ui.Image? loadedActiveDoorAsset;
   ui.Image? loadedEquipmentAsset;
@@ -72,16 +76,31 @@ class _MyHomePageState extends State<MyHomePage>
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    super.initState();
+  }
+
+  @override
   void didChangeDependencies() {
     if (!initialized) {
       initialized = true;
-      canvasSize = MediaQuery.of(context).size;
+      canvasSize = const Size(2000, 2000);
       grid = Grid(
-          gridWidth: canvasSize.width,
-          gridHeight: canvasSize.height,
-          cellSize: 20);
+          width: canvasSize.width, height: canvasSize.height, cellSize: 20);
       SketchHelpers.generateInitialSquare(grid, canvasSize);
+      SketchHelpers.centerCanvas(
+        canvasSize,
+        context,
+        _animationController,
+        _transformationController,
+        animate: false,
+      );
     }
+
     super.didChangeDependencies();
   }
 
@@ -94,37 +113,47 @@ class _MyHomePageState extends State<MyHomePage>
         child: Stack(
           children: [
             GestureDetector(
-              onPanUpdate: (details) {
-                if (selectedEntity != null) {
-                  selectedEntity?.move(
-                    details.delta.dx,
-                    details.delta.dy,
-                  );
-                  setState(() {});
-                }
-              },
-              onPanEnd: (details) {
-                if (selectedEntity != null) {
-                  grid.snapEntityToGrid(selectedEntity!);
-                  setState(() {});
-                }
-              },
               onTapUp: (details) {
-                selectedEntity = SketchHelpers.getEntityAtPosition(
-                    details.localPosition, grid);
+                var childWasTappedAt = _transformationController.toScene(
+                  details.localPosition,
+                );
+                selectedEntity =
+                    SketchHelpers.getEntityAtPosition(childWasTappedAt, grid);
                 setState(() {});
               },
-              child: Stack(
-                children: [
-                  CustomPaint(
-                    size: canvasSize,
-                    painter: BasePainter(
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                constrained: false,
+                panEnabled: selectedEntity == null,
+                scaleEnabled: selectedEntity == null,
+                minScale: 0.5,
+                onInteractionUpdate: (details) {
+                  if (selectedEntity != null) {
+                    selectedEntity?.move(
+                      details.focalPointDelta.dx,
+                      details.focalPointDelta.dy,
+                    );
+                    setState(() {});
+                  }
+                },
+                onInteractionEnd: (details) {
+                  if (selectedEntity != null) {
+                    grid.snapEntityToGrid(selectedEntity!);
+                    setState(() {});
+                  }
+                },
+                child: Stack(
+                  children: [
+                    CustomPaint(
+                      size: canvasSize,
+                      painter: BasePainter(
                         grid: grid,
                         selectedEntity: selectedEntity,
-                        cameraOffset: cameraOffset),
-                  ),
-                  _buildOverlayIcon(),
-                ],
+                      ),
+                    ),
+                    _buildOverlayIcon(),
+                  ],
+                ),
               ),
             ),
             _buildContextButtons()
@@ -140,7 +169,6 @@ class _MyHomePageState extends State<MyHomePage>
         return CustomPaint(
           size: canvasSize,
           painter: IconPainter(
-            cameraOffset: cameraOffset,
             position: Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
             icon: const Icon(
               Icons.zoom_out_map,
@@ -153,8 +181,7 @@ class _MyHomePageState extends State<MyHomePage>
         return CustomPaint(
           size: canvasSize,
           painter: IconPainter(
-            cameraOffset: cameraOffset,
-            position: (selectedEntity as Wall).getCenter(selectedEntity),
+            position: Wall.getCenter(selectedEntity),
             icon: const Icon(
               Icons.zoom_out_map,
               color: Color(0xFF2463EB),
@@ -169,11 +196,82 @@ class _MyHomePageState extends State<MyHomePage>
 
   _buildContextButtons() {
 //----------
+//DEFAULT
+//----------
+    if (selectedEntity == null) {
+      return Row(
+        children: [
+          TextButton(
+            child: const Text('Center'),
+            onPressed: () {
+              SketchHelpers.centerCanvas(
+                canvasSize,
+                context,
+                _animationController,
+                _transformationController,
+              );
+
+              setState(() {});
+            },
+          ),
+          TextButton(
+            child: const Text('Fit to View'),
+            onPressed: () {
+              SketchHelpers.fitDragHandles(
+                context,
+                grid,
+                _animationController,
+                _transformationController,
+              );
+              setState(() {});
+            },
+          ),
+          TextButton(
+            child: const Text('Save'),
+            onPressed: () async {
+              await FileUtil.saveFile(jsonEncode(grid.toJson()));
+            },
+          ),
+          TextButton(
+            child: const Text('Load Saved'),
+            onPressed: () async {
+              final jsonData = jsonDecode(await FileUtil.readFile());
+              loadedDoorAsset = loadedDoorAsset ??
+                  await SketchHelpers.loadImage('assets/door.png');
+              loadedActiveDoorAsset = loadedActiveDoorAsset ??
+                  await SketchHelpers.loadImage('assets/door_active.png');
+              loadedMPAsset = loadedMPAsset ??
+                  await SketchHelpers.loadImage('assets/moisture.png');
+              loadedActiveMPAsset = loadedActiveMPAsset ??
+                  await SketchHelpers.loadImage('assets/moisture_active.png');
+              loadedEquipmentAsset = loadedEquipmentAsset ??
+                  await SketchHelpers.loadImage('assets/equipment.png');
+              loadedActiveEquipmentAsset = loadedActiveEquipmentAsset ??
+                  await SketchHelpers.loadImage('assets/equipment_active.png');
+              grid = Grid.fromJson(
+                jsonData,
+                loadedDoorAsset!,
+                loadedActiveDoorAsset!,
+                loadedMPAsset!,
+                loadedActiveMPAsset!,
+                loadedEquipmentAsset!,
+                loadedActiveEquipmentAsset!,
+              );
+              setState(() {});
+              if (mounted) {
+                SketchHelpers.fitDragHandles(context, grid,
+                    _animationController, _transformationController);
+              }
+            },
+          ),
+        ],
+      );
+    }
+//----------
 //WALL
 //----------
     if (selectedEntity is Wall) {
       final wall = selectedEntity as Wall;
-
       return Row(
         children: [
           if (wall.wallState == WallState.active)
@@ -306,8 +404,11 @@ class _MyHomePageState extends State<MyHomePage>
             },
           ),
           TextButton(
-            child: const Text('Snap to Wall'),
+            child: const Text('Snap to Closest Wall'),
             onPressed: () {
+              // TODO: Optimize later, the double call is a bandaid solution for a misalighnment problem
+              (selectedEntity as Window)
+                  .snapToClosestWall(grid.entities.whereType<Wall>().toList());
               (selectedEntity as Window)
                   .snapToClosestWall(grid.entities.whereType<Wall>().toList());
 
@@ -512,14 +613,13 @@ Future<String?> showInputDialog(BuildContext context, String? preValue) async {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(null); // Return null on cancel
+              Navigator.of(context).pop(null);
             },
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context)
-                  .pop(textController.text); // Return entered text on save
+              Navigator.of(context).pop(textController.text);
             },
             child: const Text('Save'),
           ),
@@ -528,5 +628,5 @@ Future<String?> showInputDialog(BuildContext context, String? preValue) async {
     },
   );
 
-  return result; // Return the result (entered text or null)
+  return result;
 }

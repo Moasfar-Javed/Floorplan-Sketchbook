@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/parent_entity.dart';
 import 'package:sketchbook/models/enums/wall_state.dart';
@@ -25,6 +26,35 @@ class Wall extends Entity {
           y: (handleA.y + handleB.y) / 2,
           zIndex: ZIndex.wall.value,
         );
+
+  factory Wall.fromJson(
+    Map<String, dynamic> json,
+    DragHandle handleA,
+    DragHandle handleB,
+  ) {
+    return Wall(
+      id: json['id'],
+      thickness: json['thickness'],
+      wallState: WallState.fromValue(json['wallState']),
+      handleA: handleA,
+      handleB: handleB,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'instanceType': EntityInstance.wall.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'thickness': thickness,
+      'wallState': wallState.value,
+      'handleA': handleA.toJson(),
+      'handleB': handleB.toJson(),
+    };
+  }
 
   double get length => (handleB.x - handleA.x).abs();
 
@@ -63,33 +93,35 @@ class Wall extends Entity {
       );
     }
 
-    // If the wall state is removed, draw a dotted line
-
     // Draw handles (unchanged)
     handleA.draw(canvas, state);
     handleB.draw(canvas, state);
   }
 
-// Helper function to draw a dashed line
+  // Helper function to draw a dashed line
   void _drawDashedLine(Canvas canvas, Paint paint, Offset start, Offset end,
       {double dashLength = 10.0, double gapLength = 5.0}) {
-    double distance = (end - start).distance;
-    double dashCount = (distance / (dashLength + gapLength)).floorToDouble();
+    final totalDistance = (end - start).distance;
+    final dashAndGapLength = dashLength + gapLength;
+    final dashCount = (totalDistance / dashAndGapLength).floor();
+
+    // Direction vector from start to end
+    final direction = (end - start) / totalDistance;
 
     for (int i = 0; i < dashCount; i++) {
-      double startX = start.dx + i * (dashLength + gapLength);
-      double endX = startX + dashLength;
-
-      if (endX > end.dx) {
-        endX = end.dx;
-      }
+      final dashStart = start + direction * (i * dashAndGapLength);
+      final dashEnd = dashStart + direction * dashLength;
 
       // Draw each dash
-      canvas.drawLine(
-        Offset(startX, start.dy),
-        Offset(endX, start.dy),
-        paint,
-      );
+      canvas.drawLine(dashStart, dashEnd, paint);
+    }
+
+    // Draw the final dash if needed
+    final remainingDistance = totalDistance - (dashCount * dashAndGapLength);
+    if (remainingDistance > dashLength) {
+      final lastDashStart = start + direction * (dashCount * dashAndGapLength);
+      final lastDashEnd = lastDashStart + direction * dashLength;
+      canvas.drawLine(lastDashStart, lastDashEnd, paint);
     }
   }
 
@@ -150,7 +182,7 @@ class Wall extends Entity {
     }
   }
 
-  Offset getCenter(wall) {
+  static Offset getCenter(wall) {
     return Offset((wall.handleA.x + wall.handleB.x) / 2,
         (wall.handleA.y + wall.handleB.y) / 2);
   }

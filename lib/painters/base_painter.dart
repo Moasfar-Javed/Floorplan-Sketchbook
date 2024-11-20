@@ -12,17 +12,15 @@ import 'package:sketchbook/models/entities/wall.dart';
 class BasePainter extends CustomPainter {
   final Entity? selectedEntity;
   final Grid grid;
-  final Offset cameraOffset;
 
   BasePainter({
     required this.grid,
     required this.selectedEntity,
-    required this.cameraOffset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.translate(cameraOffset.dx, cameraOffset.dy);
+    // canvas.translate(cameraOffset.dx, cameraOffset.dy);
 
     // Step 1: Draw the outside area with grey (background)
     final backgroundPaint = Paint()

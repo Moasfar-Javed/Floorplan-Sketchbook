@@ -31,4 +31,9 @@ abstract class Entity {
   bool isEqual(Entity other) {
     return id == other.id && runtimeType == other.runtimeType;
   }
+
+  Map<String, dynamic> toJson();
+
+  // Implemented on each entitiy basis due to diff params 
+  // Entity fromJson();
 }

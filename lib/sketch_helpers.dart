@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sketchbook/main.dart';
 import 'package:sketchbook/models/entities/door.dart';
@@ -140,7 +141,7 @@ class SketchHelpers {
   static void generateInitialSquare(Grid grid, Size canvasSize) {
     final centerX = canvasSize.width / 2;
     final centerY = canvasSize.height / 2;
-    const squareSide = 300.0;
+    const squareSide = 200.0;
 
     final topLeft = Offset(centerX - squareSide / 2, centerY - squareSide / 2);
     final topRight = Offset(centerX + squareSide / 2, centerY - squareSide / 2);
@@ -228,5 +229,108 @@ class SketchHelpers {
     t = t.clamp(0.0, 1.0); // Clamp t to the segment [0, 1]
 
     return Offset(lineStart.dx + t * line.dx, lineStart.dy + t * line.dy);
+  }
+
+  static void fitDragHandles(
+      BuildContext context,
+      Grid grid,
+      AnimationController animationController,
+      TransformationController transformationController,
+      {bool animate = true}) {
+    final viewportSize = MediaQuery.of(context).size;
+
+    // Extract all drag handles from grid entities
+    final dragHandles = grid.entities
+        .whereType<Wall>()
+        .toList()
+        .expand((entity) => [entity.handleA, entity.handleB]);
+
+    // Define the bounding rectangle for all drag handles
+    final dragHandlesBounds = Rect.fromLTRB(
+      dragHandles
+          .map((handle) => handle.x)
+          .reduce((a, b) => a < b ? a : b), // Minimum x
+      dragHandles
+          .map((handle) => handle.y)
+          .reduce((a, b) => a < b ? a : b), // Minimum y
+      dragHandles
+          .map((handle) => handle.x)
+          .reduce((a, b) => a > b ? a : b), // Maximum x
+      dragHandles
+          .map((handle) => handle.y)
+          .reduce((a, b) => a > b ? a : b), // Maximum y
+    );
+
+    // Calculate the center of the bounding rectangle
+    final dragHandlesCenter = Offset(
+      dragHandlesBounds.left + dragHandlesBounds.width / 2,
+      dragHandlesBounds.top + dragHandlesBounds.height / 2,
+    );
+
+    // Calculate the required scale to fit the bounding rectangle within the viewport
+    final scaleX = viewportSize.width / dragHandlesBounds.width;
+    final scaleY = viewportSize.height / dragHandlesBounds.height;
+    final scale = (scaleX < scaleY ? scaleX : scaleY) *
+        0.9; // Add padding (90% of max scale)
+
+    // Calculate the translation needed to center the bounding rectangle
+    final viewportCenter =
+        Offset(viewportSize.width / 2, viewportSize.height / 2);
+    final translation = viewportCenter - dragHandlesCenter * scale;
+
+    // Create the target transformation matrix
+    final targetMatrix = Matrix4.identity()
+      ..translate(translation.dx, translation.dy)
+      ..scale(scale);
+
+    if (animate) {
+      final currentMatrix = transformationController.value;
+      final matrixTween = Matrix4Tween(begin: currentMatrix, end: targetMatrix);
+
+      animationController.reset();
+      animationController.addListener(() {
+        transformationController.value =
+            matrixTween.evaluate(animationController);
+      });
+      animationController.forward();
+    } else {
+      transformationController.value = targetMatrix;
+    }
+  }
+
+  static void centerCanvas(
+      Size canvasSize,
+      BuildContext context,
+      AnimationController animationController,
+      TransformationController transformationController,
+      {bool animate = true}) {
+    final canvasCenter = Offset(canvasSize.width / 2, canvasSize.height / 2);
+    final viewportSize = MediaQuery.of(context).size;
+
+    // Calculate the top-left of the viewport center
+    final viewportCenter =
+        Offset(viewportSize.width / 2, viewportSize.height / 2);
+
+    // Calculate the translation needed to center the canvas
+    final translation = viewportCenter - canvasCenter;
+
+    // Create the target transformation matrix
+    final targetMatrix = Matrix4.identity()
+      ..translate(translation.dx, translation.dy)
+      ..scale(1.0);
+
+    if (animate) {
+      final currentMatrix = transformationController.value;
+      final matrixTween = Matrix4Tween(begin: currentMatrix, end: targetMatrix);
+
+      animationController.reset();
+      animationController.addListener(() {
+        transformationController.value =
+            matrixTween.evaluate(animationController);
+      });
+      animationController.forward();
+    } else {
+      transformationController.value = targetMatrix;
+    }
   }
 }

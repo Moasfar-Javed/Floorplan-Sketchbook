@@ -3,11 +3,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class MoisturePoint extends Entity {
-  static const double size = 40;
+  double size = 40;
   final ui.Image moisturePointAsset;
   final ui.Image activeMoisturePointAsset;
   String label;
@@ -19,13 +20,43 @@ class MoisturePoint extends Entity {
     required this.moisturePointAsset,
     required this.activeMoisturePointAsset,
     required this.label,
+    this.size = 40,
   }) : super(
           zIndex: ZIndex.moisturePoint.value,
         );
 
+  factory MoisturePoint.fromJson(
+    Map<String, dynamic> json,
+    ui.Image assetImage,
+    ui.Image assetActiveImage,
+  ) {
+    return MoisturePoint(
+      id: json['id'],
+      x: json['x'],
+      y: json['y'],
+      size: json['size'],
+      label: json['label'],
+      moisturePointAsset: assetImage,
+      activeMoisturePointAsset: assetActiveImage,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'instanceType': EntityInstance.moisturePoint.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'size': size,
+      'label': label,
+    };
+  }
+
   @override
   bool contains(Offset position) {
-    const double hitAreaRadius = size + 10;
+    double hitAreaRadius = size + 10;
     return (position - Offset(x, y)).distance <= hitAreaRadius;
   }
 

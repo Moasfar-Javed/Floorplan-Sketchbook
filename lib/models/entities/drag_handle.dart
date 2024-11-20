@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/handle_type.dart';
 import 'package:sketchbook/models/enums/parent_entity.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class DragHandle extends Entity {
-  static const double handleSize = 6;
+  double size;
   final HandleType handleType;
   final ParentEntity parentEntity;
 
@@ -16,14 +17,42 @@ class DragHandle extends Entity {
     required super.y,
     required this.parentEntity,
     this.handleType = HandleType.colored,
+    this.size = 6,
   }) : super(
           zIndex: ZIndex.dragHandle.value,
         );
 
+  factory DragHandle.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return DragHandle(
+      id: json['id'],
+      x: json['x'],
+      y: json['y'],
+      size: json['size'],
+      parentEntity: ParentEntity.fromValue(json['parentEntity']),
+      handleType: HandleType.fromValue(json['handleType']),
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'instanceType': EntityInstance.dragHandle.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'size': size,
+      'parentEntity': parentEntity.value,
+      'handleType': handleType.value,
+    };
+  }
+
   @override
   bool contains(Offset position) {
     double hitAreaRadius =
-        handleSize + (parentEntity == ParentEntity.window ? 5 : 20);
+        size + (parentEntity == ParentEntity.window ? 5 : 20);
     return (position - Offset(x, y)).distance <= hitAreaRadius;
   }
 
@@ -34,6 +63,6 @@ class DragHandle extends Entity {
           ? Colors.transparent
           : Colors.white;
 
-    canvas.drawCircle(Offset(x, y), handleSize, paint);
+    canvas.drawCircle(Offset(x, y), size, paint);
   }
 }

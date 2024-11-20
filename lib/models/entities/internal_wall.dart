@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 import 'package:sketchbook/sketch_helpers.dart';
@@ -20,6 +21,31 @@ class InternalWall extends Entity {
           y: (handleA.y + handleB.y) / 2,
           zIndex: ZIndex.internalWall.value,
         );
+
+  factory InternalWall.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return InternalWall(
+      id: json['id'],
+      thickness: json['thickness'],
+      handleA: DragHandle.fromJson(json['handleA']),
+      handleB: DragHandle.fromJson(json['handleB']),
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'instanceType': EntityInstance.internalWall.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'thickness': thickness,
+      'handleA': handleA.toJson(),
+      'handleB': handleB.toJson(),
+    };
+  }
 
   @override
   bool contains(Offset position) {

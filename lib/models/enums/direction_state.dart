@@ -1,4 +1,0 @@
-enum DirectionState {
-  horizontal,
-  vertical,
-}

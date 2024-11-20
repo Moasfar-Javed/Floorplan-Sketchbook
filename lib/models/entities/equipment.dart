@@ -3,29 +3,60 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class Equipment extends Entity {
-  static const double size = 40;
+  double size = 40;
   final ui.Image equipmentAsset;
   final ui.Image activeEquipmentAsset;
   String label;
 
-  Equipment({
-    required super.id,
-    required super.x,
-    required super.y,
-    required this.equipmentAsset,
-    required this.activeEquipmentAsset,
-    required this.label,
-  }) : super(
+  Equipment(
+      {required super.id,
+      required super.x,
+      required super.y,
+      required this.equipmentAsset,
+      required this.activeEquipmentAsset,
+      required this.label,
+      this.size = 40})
+      : super(
           zIndex: ZIndex.equipment.value,
         );
 
+  factory Equipment.fromJson(
+    Map<String, dynamic> json,
+    ui.Image assetImage,
+    ui.Image assetActiveImage,
+  ) {
+    return Equipment(
+      id: json['id'],
+      x: json['x'],
+      y: json['y'],
+      size: json['size'],
+      label: json['label'],
+      equipmentAsset: assetImage,
+      activeEquipmentAsset: assetActiveImage,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'instanceType': EntityInstance.equipment.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'size': size,
+      'label': label,
+    };
+  }
+
   @override
   bool contains(Offset position) {
-    const double hitAreaRadius = size + 10;
+    double hitAreaRadius = size + 10;
     return (position - Offset(x, y)).distance <= hitAreaRadius;
   }
 

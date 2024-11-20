@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
@@ -21,6 +22,32 @@ class Door extends Entity {
   }) : super(
           zIndex: ZIndex.door.value,
         );
+
+  factory Door.fromJson(
+    Map<String, dynamic> json,
+    ui.Image assetImage,
+    ui.Image assetActiveImage,
+  ) {
+    return Door(
+      id: json['id'],
+      x: json['x'],
+      y: json['y'],
+      doorAsset: assetImage,
+      doorActiveAsset: assetActiveImage,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'instanceType': EntityInstance.door.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'rotation': rotation,
+    };
+  }
 
   @override
   bool contains(Offset position) {
