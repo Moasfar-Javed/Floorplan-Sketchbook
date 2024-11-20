@@ -305,6 +305,15 @@ class _MyHomePageState extends State<MyHomePage>
               setState(() {});
             },
           ),
+          TextButton(
+            child: const Text('Snap to Wall'),
+            onPressed: () {
+              (selectedEntity as Window)
+                  .snapToClosestWall(grid.entities.whereType<Wall>().toList());
+
+              setState(() {});
+            },
+          ),
         ],
       );
     }

@@ -214,4 +214,19 @@ class SketchHelpers {
     grid.snapEntityToGrid(wall3);
     grid.snapEntityToGrid(wall4);
   }
+
+  static Offset closestPointOnLineSegment(
+      Offset point, Offset lineStart, Offset lineEnd) {
+    Offset line = lineEnd - lineStart;
+    double lineLengthSquared = line.dx * line.dx + line.dy * line.dy;
+
+    if (lineLengthSquared == 0.0) return lineStart;
+
+    double t =
+        ((point - lineStart).dx * line.dx + (point - lineStart).dy * line.dy) /
+            lineLengthSquared;
+    t = t.clamp(0.0, 1.0); // Clamp t to the segment [0, 1]
+
+    return Offset(lineStart.dx + t * line.dx, lineStart.dy + t * line.dy);
+  }
 }
