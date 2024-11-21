@@ -18,6 +18,7 @@ import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/painters/base_painter.dart';
 import 'package:sketchbook/painters/icon_painter.dart';
 import 'package:sketchbook/sketch_helpers.dart';
+import 'package:undo_redo/undo_redo.dart';
 import 'package:uuid/uuid.dart';
 
 const Uuid _uuid = Uuid();
@@ -62,6 +63,7 @@ class _MyHomePageState extends State<MyHomePage>
   late Grid grid;
   final TransformationController _transformationController =
       TransformationController();
+  final UndoRedoManager<Grid> _undoRedoManager = UndoRedoManager<Grid>();
 
   bool initialized = false;
   Entity? selectedEntity;
@@ -91,6 +93,7 @@ class _MyHomePageState extends State<MyHomePage>
       canvasSize = const Size(2000, 2000);
       grid = Grid(
           width: canvasSize.width, height: canvasSize.height, cellSize: 20);
+
       SketchHelpers.generateInitialSquare(grid, canvasSize);
       SketchHelpers.centerCanvas(
         canvasSize,
@@ -99,9 +102,17 @@ class _MyHomePageState extends State<MyHomePage>
         _transformationController,
         animate: false,
       );
+      _undoRedoManager.initialize(grid.clone());
     }
 
     super.didChangeDependencies();
+  }
+
+  setGridState(Function action) {
+    print('state save');
+    action();
+    _undoRedoManager.captureState(grid.clone());
+    setState(() {});
   }
 
   @override
@@ -138,8 +149,9 @@ class _MyHomePageState extends State<MyHomePage>
                 },
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
-                    grid.snapEntityToGrid(selectedEntity!);
-                    setState(() {});
+                    setGridState(() {
+                      grid.snapEntityToGrid(selectedEntity!);
+                    });
                   }
                 },
                 child: Stack(
@@ -156,7 +168,57 @@ class _MyHomePageState extends State<MyHomePage>
                 ),
               ),
             ),
-            _buildContextButtons()
+            _buildContextButtons(),
+            _buildUndoRedo(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUndoRedo() {
+    return Positioned(
+      top: 80,
+      left: 10,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.undo),
+              visualDensity: VisualDensity.compact,
+              color: _undoRedoManager.canUndo()
+                  ? Colors.white
+                  : Colors.white.withOpacity(0.4),
+              onPressed: () {
+                final res = _undoRedoManager.undo();
+                if (res != null) {
+                  grid = res.clone();
+                  selectedEntity = null;
+                  setState(() {});
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            IconButton(
+              icon: const Icon(Icons.redo),
+              visualDensity: VisualDensity.compact,
+              color: _undoRedoManager.canRedo()
+                  ? Colors.white
+                  : Colors.white.withOpacity(0.4),
+              onPressed: () {
+                final res = _undoRedoManager.redo();
+                if (res != null) {
+                  grid = res.clone();
+                  selectedEntity = null;
+                  setState(() {});
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -194,7 +256,7 @@ class _MyHomePageState extends State<MyHomePage>
     return const SizedBox.shrink();
   }
 
-  _buildContextButtons() {
+  Widget _buildContextButtons() {
 //----------
 //DEFAULT
 //----------
@@ -210,7 +272,6 @@ class _MyHomePageState extends State<MyHomePage>
                 _animationController,
                 _transformationController,
               );
-
               setState(() {});
             },
           ),
@@ -257,11 +318,13 @@ class _MyHomePageState extends State<MyHomePage>
                 loadedEquipmentAsset!,
                 loadedActiveEquipmentAsset!,
               );
+
               setState(() {});
               if (mounted) {
                 SketchHelpers.fitDragHandles(context, grid,
                     _animationController, _transformationController);
               }
+              _undoRedoManager.initialize(grid.clone());
             },
           ),
         ],
@@ -278,30 +341,33 @@ class _MyHomePageState extends State<MyHomePage>
             TextButton(
               child: const Text('Add a Point'),
               onPressed: () {
-                var childWalls = wall.split(wall);
-                grid.removeEntity(wall);
-                grid.addEntity(childWalls.$1);
-                grid.addEntity(childWalls.$2);
-                grid.snapEntityToGrid(childWalls.$1);
-                grid.snapEntityToGrid(childWalls.$2);
-                selectedEntity = null;
-                setState(() {});
+                setGridState(() {
+                  var childWalls = wall.split(wall);
+                  grid.removeEntity(wall);
+                  grid.addEntity(childWalls.$1);
+                  grid.addEntity(childWalls.$2);
+                  grid.snapEntityToGrid(childWalls.$1);
+                  grid.snapEntityToGrid(childWalls.$2);
+                  selectedEntity = null;
+                });
               },
             ),
           if (wall.wallState == WallState.active)
             TextButton(
               child: const Text('Open Wall'),
               onPressed: () {
-                wall.wallState = WallState.removed;
-                setState(() {});
+                setGridState(() {
+                  wall.wallState = WallState.removed;
+                });
               },
             ),
           if (wall.wallState == WallState.removed)
             TextButton(
               child: const Text('Close Wall'),
               onPressed: () {
-                wall.wallState = WallState.active;
-                setState(() {});
+                setGridState(() {
+                  wall.wallState = WallState.active;
+                });
               },
             ),
         ],
@@ -319,20 +385,21 @@ class _MyHomePageState extends State<MyHomePage>
           TextButton(
             child: const Text('Remove Point'),
             onPressed: () {
-              final walls = grid.entities
-                  .where((e) =>
-                      e is Wall &&
-                      ((e).handleA.isEqual(handle) ||
-                          (e).handleB.isEqual(handle)))
-                  .cast<Wall>()
-                  .toList();
-              final newCommonHandle = walls.first.handleA.isEqual(handle)
-                  ? walls.first.handleB
-                  : walls.first.handleA;
-              walls.last.replaceHandle(handle, newCommonHandle);
-              grid.removeEntity(walls.first);
-              selectedEntity = null;
-              setState(() {});
+              setGridState(() {
+                final walls = grid.entities
+                    .where((e) =>
+                        e is Wall &&
+                        ((e).handleA.isEqual(handle) ||
+                            (e).handleB.isEqual(handle)))
+                    .cast<Wall>()
+                    .toList();
+                final newCommonHandle = walls.first.handleA.isEqual(handle)
+                    ? walls.first.handleB
+                    : walls.first.handleA;
+                walls.last.replaceHandle(handle, newCommonHandle);
+                grid.removeEntity(walls.first);
+                selectedEntity = null;
+              });
             },
           ),
         ],
@@ -348,9 +415,10 @@ class _MyHomePageState extends State<MyHomePage>
           TextButton(
             child: const Text('Remove Wall'),
             onPressed: () {
-              grid.removeEntity(inWall);
-              selectedEntity = null;
-              setState(() {});
+              setGridState(() {
+                grid.removeEntity(inWall);
+                selectedEntity = null;
+              });
             },
           ),
         ],
@@ -366,23 +434,26 @@ class _MyHomePageState extends State<MyHomePage>
           TextButton(
             child: const Text('Remove'),
             onPressed: () {
-              grid.removeEntity(door);
-              selectedEntity = null;
-              setState(() {});
+              setGridState(() {
+                grid.removeEntity(door);
+                selectedEntity = null;
+              });
             },
           ),
           TextButton(
             child: const Text('Rotate Right'),
             onPressed: () {
-              door.rotateClockwise();
-              setState(() {});
+              setGridState(() {
+                door.rotateClockwise();
+              });
             },
           ),
           TextButton(
             child: const Text('Rotate Left'),
             onPressed: () {
-              door.rotateCounterclockwise();
-              setState(() {});
+              setGridState(() {
+                door.rotateCounterclockwise();
+              });
             },
           ),
         ],
@@ -398,21 +469,22 @@ class _MyHomePageState extends State<MyHomePage>
           TextButton(
             child: const Text('Remove'),
             onPressed: () {
-              grid.removeEntity(window);
-              selectedEntity = null;
-              setState(() {});
+              setGridState(() {
+                grid.removeEntity(window);
+                selectedEntity = null;
+              });
             },
           ),
           TextButton(
             child: const Text('Snap to Closest Wall'),
             onPressed: () {
-              // TODO: Optimize later, the double call is a bandaid solution for a misalighnment problem
-              (selectedEntity as Window)
-                  .snapToClosestWall(grid.entities.whereType<Wall>().toList());
-              (selectedEntity as Window)
-                  .snapToClosestWall(grid.entities.whereType<Wall>().toList());
-
-              setState(() {});
+              setGridState(() {
+                // TODO: Optimize later, the double call is a bandaid solution for a misalighnment problem
+                (selectedEntity as Window).snapToClosestWall(
+                    grid.entities.whereType<Wall>().toList());
+                (selectedEntity as Window).snapToClosestWall(
+                    grid.entities.whereType<Wall>().toList());
+              });
             },
           ),
         ],
@@ -429,16 +501,18 @@ class _MyHomePageState extends State<MyHomePage>
             child: const Text('Change Value'),
             onPressed: () async {
               final newVal = await showInputDialog(context, equipment.label);
-              equipment.updateValue(newVal);
-              setState(() {});
+              setGridState(() {
+                equipment.updateValue(newVal);
+              });
             },
           ),
           TextButton(
             child: const Text('Remove'),
             onPressed: () {
-              grid.removeEntity(equipment);
-              selectedEntity = null;
-              setState(() {});
+              setGridState(() {
+                grid.removeEntity(equipment);
+                selectedEntity = null;
+              });
             },
           ),
         ],
@@ -454,17 +528,19 @@ class _MyHomePageState extends State<MyHomePage>
           TextButton(
             child: const Text('Change Value'),
             onPressed: () async {
-              final newVal = await showInputDialog(context, mp.label);
-              mp.updateValue(newVal);
-              setState(() {});
+              setGridState(() async {
+                final newVal = await showInputDialog(context, mp.label);
+                mp.updateValue(newVal);
+              });
             },
           ),
           TextButton(
             child: const Text('Remove'),
             onPressed: () {
-              grid.removeEntity(mp);
-              selectedEntity = null;
-              setState(() {});
+              setGridState(() {
+                grid.removeEntity(mp);
+                selectedEntity = null;
+              });
             },
           ),
         ],
@@ -492,26 +568,26 @@ class _MyHomePageState extends State<MyHomePage>
       ],
       onTap: (value) async {
         if (value == 0) {
-          final inWall = InternalWall(
-            id: generateGuid(),
-            thickness: 10,
-            handleA: DragHandle(
+          setGridState(() {
+            final inWall = InternalWall(
               id: generateGuid(),
-              x: canvasSize.width / 2,
-              y: canvasSize.height / 2,
-              parentEntity: ParentEntity.internalWall,
-              handleType: HandleType.transparent,
-            ),
-            handleB: DragHandle(
-              id: generateGuid(),
-              x: canvasSize.width / 2,
-              y: canvasSize.height / 2 + 100,
-              parentEntity: ParentEntity.internalWall,
-              handleType: HandleType.transparent,
-            ),
-          );
-          grid.addEntity(inWall);
-          setState(() {
+              thickness: 10,
+              handleA: DragHandle(
+                id: generateGuid(),
+                x: canvasSize.width / 2,
+                y: canvasSize.height / 2,
+                parentEntity: ParentEntity.internalWall,
+                handleType: HandleType.transparent,
+              ),
+              handleB: DragHandle(
+                id: generateGuid(),
+                x: canvasSize.width / 2,
+                y: canvasSize.height / 2 + 100,
+                parentEntity: ParentEntity.internalWall,
+                handleType: HandleType.transparent,
+              ),
+            );
+            grid.addEntity(inWall);
             selectedEntity = inWall;
           });
         } else if (value == 1) {
@@ -519,38 +595,39 @@ class _MyHomePageState extends State<MyHomePage>
               await SketchHelpers.loadImage('assets/door.png');
           loadedActiveDoorAsset = loadedActiveDoorAsset ??
               await SketchHelpers.loadImage('assets/door_active.png');
-          final door = Door(
-            id: generateGuid(),
-            x: canvasSize.width / 2,
-            y: canvasSize.height / 2,
-            doorAsset: loadedDoorAsset!,
-            doorActiveAsset: loadedActiveDoorAsset!,
-          );
-          grid.addEntity(door);
-          setState(() {
-            selectedEntity = door;
-          });
-        } else if (value == 2) {
-          final window = Window(
-            id: generateGuid(),
-            thickness: 15,
-            handleA: DragHandle(
+          setGridState(() {
+            final door = Door(
               id: generateGuid(),
               x: canvasSize.width / 2,
               y: canvasSize.height / 2,
-              parentEntity: ParentEntity.window,
-              handleType: HandleType.transparent,
-            ),
-            handleB: DragHandle(
+              doorAsset: loadedDoorAsset!,
+              doorActiveAsset: loadedActiveDoorAsset!,
+            );
+            grid.addEntity(door);
+            selectedEntity = door;
+          });
+        } else if (value == 2) {
+          setGridState(() {
+            final window = Window(
               id: generateGuid(),
-              x: canvasSize.width / 2,
-              y: canvasSize.height / 2 + 40,
-              parentEntity: ParentEntity.window,
-              handleType: HandleType.transparent,
-            ),
-          );
-          grid.addEntity(window);
-          setState(() {
+              thickness: 15,
+              handleA: DragHandle(
+                id: generateGuid(),
+                x: canvasSize.width / 2,
+                y: canvasSize.height / 2,
+                parentEntity: ParentEntity.window,
+                handleType: HandleType.transparent,
+              ),
+              handleB: DragHandle(
+                id: generateGuid(),
+                x: canvasSize.width / 2,
+                y: canvasSize.height / 2 + 40,
+                parentEntity: ParentEntity.window,
+                handleType: HandleType.transparent,
+              ),
+            );
+            grid.addEntity(window);
+
             selectedEntity = window;
           });
         } else if (value == 3) {
@@ -558,17 +635,17 @@ class _MyHomePageState extends State<MyHomePage>
               await SketchHelpers.loadImage('assets/equipment.png');
           loadedActiveEquipmentAsset = loadedActiveEquipmentAsset ??
               await SketchHelpers.loadImage('assets/equipment_active.png');
+          setGridState(() {
+            final equipment = Equipment(
+              label: '2',
+              id: generateGuid(),
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2,
+              equipmentAsset: loadedEquipmentAsset!,
+              activeEquipmentAsset: loadedActiveEquipmentAsset!,
+            );
+            grid.addEntity(equipment);
 
-          final equipment = Equipment(
-            label: '2',
-            id: generateGuid(),
-            x: canvasSize.width / 2,
-            y: canvasSize.height / 2,
-            equipmentAsset: loadedEquipmentAsset!,
-            activeEquipmentAsset: loadedActiveEquipmentAsset!,
-          );
-          grid.addEntity(equipment);
-          setState(() {
             selectedEntity = equipment;
           });
         } else if (value == 4) {
@@ -576,17 +653,17 @@ class _MyHomePageState extends State<MyHomePage>
               await SketchHelpers.loadImage('assets/moisture.png');
           loadedActiveMPAsset = loadedActiveMPAsset ??
               await SketchHelpers.loadImage('assets/moisture_active.png');
+          setGridState(() {
+            final equipment = Equipment(
+              label: '2',
+              id: generateGuid(),
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2,
+              equipmentAsset: loadedMPAsset!,
+              activeEquipmentAsset: loadedActiveMPAsset!,
+            );
+            grid.addEntity(equipment);
 
-          final equipment = Equipment(
-            label: '2',
-            id: generateGuid(),
-            x: canvasSize.width / 2,
-            y: canvasSize.height / 2,
-            equipmentAsset: loadedMPAsset!,
-            activeEquipmentAsset: loadedActiveMPAsset!,
-          );
-          grid.addEntity(equipment);
-          setState(() {
             selectedEntity = equipment;
           });
         }

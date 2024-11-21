@@ -50,6 +50,18 @@ class DragHandle extends Entity {
   }
 
   @override
+  DragHandle clone() {
+    return DragHandle(
+      id: id,
+      x: x,
+      y: y,
+      parentEntity: parentEntity,
+      size: size,
+      handleType: handleType,
+    );
+  }
+
+  @override
   bool contains(Offset position) {
     double hitAreaRadius =
         size + (parentEntity == ParentEntity.window ? 5 : 20);

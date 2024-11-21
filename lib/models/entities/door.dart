@@ -13,13 +13,14 @@ class Door extends Entity {
   final ui.Image doorActiveAsset;
   double rotation = 0;
 
-  Door({
-    required super.id,
-    required super.x,
-    required super.y,
-    required this.doorAsset,
-    required this.doorActiveAsset,
-  }) : super(
+  Door(
+      {required super.id,
+      required super.x,
+      required super.y,
+      required this.doorAsset,
+      required this.doorActiveAsset,
+      this.rotation = 0})
+      : super(
           zIndex: ZIndex.door.value,
         );
 
@@ -34,6 +35,7 @@ class Door extends Entity {
       y: json['y'],
       doorAsset: assetImage,
       doorActiveAsset: assetActiveImage,
+      rotation: json['rotation'],
     );
   }
 
@@ -47,6 +49,18 @@ class Door extends Entity {
       'zIndex': zIndex,
       'rotation': rotation,
     };
+  }
+
+  @override
+  Door clone() {
+    return Door(
+      id: id,
+      x: x,
+      y: y,
+      doorAsset: doorAsset,
+      doorActiveAsset: doorActiveAsset,
+      rotation: rotation,
+    );
   }
 
   @override

@@ -55,6 +55,18 @@ class MoisturePoint extends Entity {
   }
 
   @override
+  MoisturePoint clone() {
+    return MoisturePoint(
+      id: id,
+      x: x,
+      y: y,
+      moisturePointAsset: moisturePointAsset,
+      activeMoisturePointAsset: activeMoisturePointAsset,
+      label: label,
+    );
+  }
+
+  @override
   bool contains(Offset position) {
     double hitAreaRadius = size + 10;
     return (position - Offset(x, y)).distance <= hitAreaRadius;

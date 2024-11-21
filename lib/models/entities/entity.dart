@@ -1,8 +1,9 @@
 import 'dart:ui';
 
 import 'package:sketchbook/models/enums/entity_state.dart';
+import 'package:undo_redo/undo_redo.dart';
 
-abstract class Entity {
+abstract class Entity with CloneableMixin<Entity> {
   String id;
   double x;
   double y;
@@ -14,6 +15,10 @@ abstract class Entity {
     required this.y,
     required this.zIndex,
   });
+
+  //returns a deep copy for undo/redo
+  @override
+  Entity clone();
 
   void move(double deltaX, double deltaY) {
     x += deltaX;
@@ -34,6 +39,6 @@ abstract class Entity {
 
   Map<String, dynamic> toJson();
 
-  // Implemented on each entitiy basis due to diff params 
+  // Implemented on each entitiy basis due to diff params
   // Entity fromJson();
 }

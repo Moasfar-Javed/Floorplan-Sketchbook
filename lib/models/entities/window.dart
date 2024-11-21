@@ -50,6 +50,15 @@ class Window extends Entity {
   }
 
   @override
+  Window clone() {
+    return Window(
+        id: id,
+        thickness: thickness,
+        handleA: handleA.clone(),
+        handleB: handleB.clone());
+  }
+
+  @override
   bool contains(Offset position) {
     return SketchHelpers.distanceToLineSegment(position,
             Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <

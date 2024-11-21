@@ -271,7 +271,7 @@ class SketchHelpers {
     final scaleX = viewportSize.width / dragHandlesBounds.width;
     final scaleY = viewportSize.height / dragHandlesBounds.height;
     final scale = (scaleX < scaleY ? scaleX : scaleY) *
-        0.9; // Add padding (90% of max scale)
+        0.6; // Add padding (90% of max scale)
 
     // Calculate the translation needed to center the bounding rectangle
     final viewportCenter =

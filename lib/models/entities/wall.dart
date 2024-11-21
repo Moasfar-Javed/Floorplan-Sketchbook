@@ -56,6 +56,17 @@ class Wall extends Entity {
     };
   }
 
+  @override
+  Wall clone() {
+    return Wall(
+      id: id,
+      thickness: thickness,
+      wallState: wallState,
+      handleA: handleA.clone(),
+      handleB: handleB.clone(),
+    );
+  }
+
   double get length => (handleB.x - handleA.x).abs();
 
   @override

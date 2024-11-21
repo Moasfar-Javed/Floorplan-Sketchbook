@@ -9,8 +9,9 @@ import 'package:sketchbook/models/entities/moisture_point.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/entity_instance.dart';
+import 'package:undo_redo/undo_redo.dart';
 
-class Grid {
+class Grid extends Cloneable<Grid> {
   final double width;
   final double height;
   final double cellSize;
@@ -22,15 +23,6 @@ class Grid {
     required this.cellSize,
     List<Entity>? entities,
   }) : entities = entities ?? [];
-
-  Map<String, dynamic> toJson() {
-    return {
-      'width': width,
-      'height': height,
-      'cellSize': cellSize,
-      'entities': entities.map((e) => e.toJson()).toList()
-    };
-  }
 
   factory Grid.fromJson(
     Map<String, dynamic> json,
@@ -45,7 +37,7 @@ class Grid {
       width: json['width'],
       height: json['height'],
       cellSize: json['cellSize'],
-      entities: _generateEntities(
+      entities: _generateEntitiesFromJson(
         json['entities'],
         doorAssetImage,
         doorAssetActiveImage,
@@ -59,7 +51,91 @@ class Grid {
     return grid;
   }
 
-  static List<Entity> _generateEntities(
+  Map<String, dynamic> toJson() {
+    return {
+      'width': width,
+      'height': height,
+      'cellSize': cellSize,
+      'entities': entities.map((e) => e.toJson()).toList()
+    };
+  }
+
+  @override
+  Grid clone() {
+    final clonedEntities = entities.map((e) => e.clone()).toList();
+    final processedWalls = _generateWallsFromClone(clonedEntities);
+    clonedEntities.removeWhere((e) => e is Wall);
+
+    return Grid(
+      width: width,
+      height: height,
+      cellSize: cellSize,
+      entities: List.from([...processedWalls, ...clonedEntities]),
+    );
+  }
+
+  void addEntity(Entity newEntity) {
+    entities.add(newEntity);
+  }
+
+  void addAllEntity(List<Entity> newEntities) {
+    entities.addAll(newEntities);
+  }
+
+  void removeEntity(Entity entity) {
+    entities.remove(entity);
+  }
+
+  void snapEntityToGrid(Entity entity) {
+    double snappedX = (entity.x / cellSize).round() * cellSize;
+    double snappedY = (entity.y / cellSize).round() * cellSize;
+    entity.move(snappedX - entity.x, snappedY - entity.y);
+  }
+
+  // These methods represent a ---------
+  // hoop that we must jump through to create only one draghandle with an id
+  // and use the same object instance for two walls to represent a common handle
+  // while regenerating the grid from a snapshot (json or undo/redo)
+
+  List<Wall> _generateWallsFromClone(
+    List<Entity> entities,
+  ) {
+    List<Wall> processedWalls = [];
+    List<Wall> walls = entities.whereType<Wall>().toList();
+
+    List<DragHandle> wallHandles = walls.expand((wall) {
+      // Extract handleA and handleB from each wall and return them as a list
+      return [
+        wall.handleA,
+        wall.handleB,
+      ];
+    }).toList();
+
+    Set<String> seenIds = {};
+
+    List<DragHandle> uniqueWallHandles = wallHandles.where((handle) {
+      if (seenIds.contains(handle.id)) {
+        return false; // Skip duplicates
+      } else {
+        seenIds.add(handle.id);
+        return true;
+      }
+    }).toList();
+
+    for (final wall in walls) {
+      processedWalls.add(Wall(
+        id: wall.id,
+        thickness: wall.thickness,
+        wallState: wall.wallState,
+        handleA: uniqueWallHandles.firstWhere((e) => e.id == wall.handleA.id),
+        handleB: uniqueWallHandles.firstWhere((e) => e.id == wall.handleB.id),
+      ));
+    }
+
+    return processedWalls;
+  }
+
+  static List<Entity> _generateEntitiesFromJson(
     List<dynamic> json,
     ui.Image doorAssetImage,
     ui.Image doorAssetActiveImage,
@@ -140,23 +216,5 @@ class Grid {
     }
 
     return entities;
-  }
-
-  void addEntity(Entity newEntity) {
-    entities.add(newEntity);
-  }
-
-  void addAllEntity(List<Entity> newEntities) {
-    entities.addAll(newEntities);
-  }
-
-  void removeEntity(Entity entity) {
-    entities.remove(entity);
-  }
-
-  void snapEntityToGrid(Entity entity) {
-    double snappedX = (entity.x / cellSize).round() * cellSize;
-    double snappedY = (entity.y / cellSize).round() * cellSize;
-    entity.move(snappedX - entity.x, snappedY - entity.y);
   }
 }

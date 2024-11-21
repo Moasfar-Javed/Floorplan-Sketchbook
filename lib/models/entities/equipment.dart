@@ -55,6 +55,18 @@ class Equipment extends Entity {
   }
 
   @override
+  Equipment clone() {
+    return Equipment(
+      id: id,
+      x: x,
+      y: y,
+      equipmentAsset: equipmentAsset,
+      activeEquipmentAsset: activeEquipmentAsset,
+      label: label,
+    );
+  }
+
+  @override
   bool contains(Offset position) {
     double hitAreaRadius = size + 10;
     return (position - Offset(x, y)).distance <= hitAreaRadius;
