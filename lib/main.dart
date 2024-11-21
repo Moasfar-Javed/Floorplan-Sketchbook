@@ -108,8 +108,9 @@ class _MyHomePageState extends State<MyHomePage>
     super.didChangeDependencies();
   }
 
+  // DON'T PASS IN ASYNC ACTIONS
+  // this is to ensure setState isn't called after the state has been disposed
   setGridState(Function action) {
-    print('state save');
     action();
     _undoRedoManager.captureState(grid.clone());
     setState(() {});
@@ -528,8 +529,8 @@ class _MyHomePageState extends State<MyHomePage>
           TextButton(
             child: const Text('Change Value'),
             onPressed: () async {
-              setGridState(() async {
-                final newVal = await showInputDialog(context, mp.label);
+              final newVal = await showInputDialog(context, mp.label);
+              setGridState(() {
                 mp.updateValue(newVal);
               });
             },
