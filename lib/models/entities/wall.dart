@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
@@ -67,7 +69,8 @@ class Wall extends Entity {
     );
   }
 
-  double get length => (handleB.x - handleA.x).abs();
+  double get length =>
+      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
 
   @override
   void draw(Canvas canvas, EntityState state) {

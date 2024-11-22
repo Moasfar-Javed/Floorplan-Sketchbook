@@ -63,15 +63,49 @@ class BasePainter extends CustomPainter {
     Path path = Path();
 
     bool firstWall = true;
+    Set<int> visitedWalls = <int>{}; // To track which walls have been visited
 
-    // Loop through all walls and construct a path
-    for (var entity in grid.entities) {
-      if (entity is Wall) {
+    Wall? currentWall = grid.entities
+        .whereType<Wall>()
+        .firstOrNull; // Get the first wall to start from
+
+    if (currentWall != null) {
+      while (currentWall != null &&
+          visitedWalls.length < grid.entities.whereType<Wall>().length + 1) {
         if (firstWall) {
-          path.moveTo(entity.handleA.x, entity.handleA.y);
+          // Start the path at the first wall's handleA
+          path.moveTo(currentWall.handleA.x, currentWall.handleA.y);
+          visitedWalls
+              .add(currentWall.hashCode); // Mark current wall as visited
           firstWall = false;
+        } else {
+          // Otherwise continue from the last handleB
+          path.lineTo(currentWall.handleA.x, currentWall.handleA.y);
         }
-        path.lineTo(entity.handleB.x, entity.handleB.y);
+
+        // Try to find the next wall by checking for a shared handle
+        Wall? nextWall;
+        if (currentWall.handleA.id == currentWall.handleB.id) {
+          break; // If we encounter a self-loop, exit
+        }
+
+        // Try to find a wall that has handleB as handleA
+        nextWall = grid.entities
+            .whereType<Wall>()
+            .where((entity) =>
+                !visitedWalls.contains(entity.hashCode) &&
+                (entity.handleA.id == currentWall?.handleB.id ||
+                    entity.handleB.id == currentWall?.handleB.id))
+            .firstOrNull;
+
+        if (nextWall != null) {
+          // Move to the next wall
+          currentWall = nextWall;
+          visitedWalls
+              .add(currentWall.hashCode); // Mark the next wall as visited
+        } else {
+          break; // Exit if no next wall is found
+        }
       }
     }
 

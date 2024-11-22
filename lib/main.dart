@@ -12,14 +12,19 @@ import 'package:sketchbook/models/entities/moisture_point.dart';
 import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/handle_type.dart';
 import 'package:sketchbook/models/enums/parent_entity.dart';
+import 'package:sketchbook/models/enums/unit.dart';
 import 'package:sketchbook/models/enums/wall_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/painters/base_painter.dart';
 import 'package:sketchbook/painters/icon_painter.dart';
+import 'package:sketchbook/painters/unit_painter.dart';
 import 'package:sketchbook/sketch_helpers.dart';
 import 'package:undo_redo/undo_redo.dart';
 import 'package:uuid/uuid.dart';
+
+const cellSizeUnitPx = 20.0;
+const oneCellToInches = 5; // one cell is 5 inches
 
 const Uuid _uuid = Uuid();
 
@@ -74,6 +79,8 @@ class _MyHomePageState extends State<MyHomePage>
   ui.Image? loadedMPAsset;
   ui.Image? loadedActiveMPAsset;
 
+  bool showUnits = true;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -92,7 +99,10 @@ class _MyHomePageState extends State<MyHomePage>
       initialized = true;
       canvasSize = const Size(2000, 2000);
       grid = Grid(
-          width: canvasSize.width, height: canvasSize.height, cellSize: 20);
+        width: canvasSize.width,
+        height: canvasSize.height,
+        cellSize: cellSizeUnitPx,
+      );
 
       SketchHelpers.generateInitialSquare(grid, canvasSize);
       SketchHelpers.centerCanvas(
@@ -164,64 +174,112 @@ class _MyHomePageState extends State<MyHomePage>
                         selectedEntity: selectedEntity,
                       ),
                     ),
+                    if (showUnits)
+                      CustomPaint(
+                        size: canvasSize,
+                        painter: UnitPainter(
+                          unit: grid.unit,
+                          walls: grid.entities.whereType<Wall>().toList(),
+                          internalWalls:
+                              grid.entities.whereType<InternalWall>().toList(),
+                        ),
+                      ),
                     _buildOverlayIcon(),
                   ],
                 ),
               ),
             ),
             _buildContextButtons(),
-            _buildUndoRedo(),
+            _buildOptionsWidget(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildUndoRedo() {
+  Widget _buildOptionsWidget() {
     return Positioned(
       top: 80,
       left: 10,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.undo),
-              visualDensity: VisualDensity.compact,
-              color: _undoRedoManager.canUndo()
-                  ? Colors.white
-                  : Colors.white.withOpacity(0.4),
-              onPressed: () {
-                final res = _undoRedoManager.undo();
-                if (res != null) {
-                  grid = res.clone();
-                  selectedEntity = null;
-                  setState(() {});
-                }
-              },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(4),
             ),
-            const SizedBox(height: 10),
-            IconButton(
-              icon: const Icon(Icons.redo),
-              visualDensity: VisualDensity.compact,
-              color: _undoRedoManager.canRedo()
-                  ? Colors.white
-                  : Colors.white.withOpacity(0.4),
-              onPressed: () {
-                final res = _undoRedoManager.redo();
-                if (res != null) {
-                  grid = res.clone();
-                  selectedEntity = null;
-                  setState(() {});
-                }
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.undo),
+                  visualDensity: VisualDensity.compact,
+                  color: _undoRedoManager.canUndo()
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.4),
+                  onPressed: () {
+                    final res = _undoRedoManager.undo();
+                    if (res != null) {
+                      grid = res.clone();
+                      selectedEntity = null;
+                      setState(() {});
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                IconButton(
+                  icon: const Icon(Icons.redo),
+                  visualDensity: VisualDensity.compact,
+                  color: _undoRedoManager.canRedo()
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.4),
+                  onPressed: () {
+                    final res = _undoRedoManager.redo();
+                    if (res != null) {
+                      grid = res.clone();
+                      selectedEntity = null;
+                      setState(() {});
+                    }
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () {
+              if (grid.unit == Unit.inches) {
+                grid.unit = Unit.feetAndInches;
+              } else if (grid.unit == Unit.feetAndInches) {
+                grid.unit = Unit.metric;
+              } else {
+                grid.unit = Unit.inches;
+              }
+              setState(() {});
+            },
+            child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Center(
+                  child: Text(
+                    grid.unit == Unit.feetAndInches
+                        ? "1'1\""
+                        : grid.unit == Unit.inches
+                            ? "1\""
+                            : "1m",
+                    style: const TextStyle(
+                      color: Colors.white,
+                    ),
+                  ),
+                )),
+          ),
+        ],
       ),
     );
   }
@@ -326,6 +384,14 @@ class _MyHomePageState extends State<MyHomePage>
                     _animationController, _transformationController);
               }
               _undoRedoManager.initialize(grid.clone());
+            },
+          ),
+          TextButton(
+            child: Text(showUnits ? 'Units Off' : 'Units On'),
+            onPressed: () async {
+              setState(() {
+                showUnits = !showUnits;
+              });
             },
           ),
         ],

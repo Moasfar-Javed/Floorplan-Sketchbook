@@ -10,11 +10,11 @@ import 'package:sketchbook/models/entities/moisture_point.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/parent_entity.dart';
+import 'package:sketchbook/models/enums/unit.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'dart:ui' as ui;
 
 class SketchHelpers {
-  // Helper method to calculate the distance from a point to a line segment
   static double distanceToLineSegment(
       Offset point, Offset lineStart, Offset lineEnd) {
     // Handle the case where the line start and end are the same point (no distance)
@@ -331,6 +331,42 @@ class SketchHelpers {
       animationController.forward();
     } else {
       transformationController.value = targetMatrix;
+    }
+  }
+
+  /// Converts a distance in pixels to the specified unit and returns a formatted string.
+  static String distancePxToUnit(double distanceInPx, Unit unit) {
+    const inchesPerPixel = oneCellToInches / cellSizeUnitPx;
+    final distanceInInches = distanceInPx * inchesPerPixel;
+
+    String formatNumber(double value) {
+      value = double.parse(
+          value.toStringAsFixed(1)); // Round to 1 decimal place first.
+
+      if (value % 1 == 0) {
+        // Whole number, no decimal part.
+        return value.toInt().toString();
+      } else {
+        // Retain one decimal place for non-whole numbers.
+        return value.toString();
+      }
+    }
+
+    switch (unit) {
+      case Unit.inches:
+        return "${formatNumber(distanceInInches)}\""; // Example: 62"
+      case Unit.feetAndInches:
+        final feet = distanceInInches ~/ 12; // Whole feet.
+        final inches = distanceInInches % 12;
+        return feet > 0
+            ? "$feet' ${formatNumber(inches)}\"" // Example: 5' 2.5"
+            : "${formatNumber(inches)}\""; // Example: 11.5"
+      case Unit.metric:
+        final distanceInMeters =
+            distanceInInches * 0.0254; // Convert inches to meters.
+        return "${formatNumber(distanceInMeters)} m"; // Example: 1.59 m
+      default:
+        throw ArgumentError("Unsupported unit: $unit");
     }
   }
 }

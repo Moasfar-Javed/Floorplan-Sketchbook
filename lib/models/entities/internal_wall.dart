@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
 import 'package:sketchbook/models/entities/entity.dart';
@@ -46,6 +48,9 @@ class InternalWall extends Entity {
       'handleB': handleB.toJson(),
     };
   }
+
+  double get length =>
+      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
 
   @override
   InternalWall clone() {

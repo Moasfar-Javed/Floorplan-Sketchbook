@@ -9,6 +9,7 @@ import 'package:sketchbook/models/entities/moisture_point.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/entity_instance.dart';
+import 'package:sketchbook/models/enums/unit.dart';
 import 'package:undo_redo/undo_redo.dart';
 
 class Grid extends Cloneable<Grid> {
@@ -16,12 +17,14 @@ class Grid extends Cloneable<Grid> {
   final double height;
   final double cellSize;
   List<Entity> entities;
+  Unit unit;
 
   Grid({
     required this.width,
     required this.height,
     required this.cellSize,
     List<Entity>? entities,
+    this.unit = Unit.feetAndInches,
   }) : entities = entities ?? [];
 
   factory Grid.fromJson(
@@ -36,6 +39,7 @@ class Grid extends Cloneable<Grid> {
     final grid = Grid(
       width: json['width'],
       height: json['height'],
+      unit: Unit.fromValue(json['unit']),
       cellSize: json['cellSize'],
       entities: _generateEntitiesFromJson(
         json['entities'],
@@ -56,7 +60,8 @@ class Grid extends Cloneable<Grid> {
       'width': width,
       'height': height,
       'cellSize': cellSize,
-      'entities': entities.map((e) => e.toJson()).toList()
+      'unit': unit.value,
+      'entities': entities.map((e) => e.toJson()).toList(),
     };
   }
 
