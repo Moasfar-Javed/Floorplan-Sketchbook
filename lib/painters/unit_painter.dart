@@ -196,7 +196,7 @@ class UnitPainter extends CustomPainter {
     final dy = end.dy - start.dy;
     final length = sqrt(dx * dx + dy * dy);
 
-    const padding = 0.3;
+    const padding = 0.2;
     final adjustedLength = length * (1 - padding);
 
     final directionX = dx / length;

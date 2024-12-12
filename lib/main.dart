@@ -72,12 +72,14 @@ class _MyHomePageState extends State<MyHomePage>
 
   bool initialized = false;
   Entity? selectedEntity;
-  ui.Image? loadedDoorAsset;
-  ui.Image? loadedActiveDoorAsset;
-  ui.Image? loadedEquipmentAsset;
-  ui.Image? loadedActiveEquipmentAsset;
-  ui.Image? loadedMPAsset;
-  ui.Image? loadedActiveMPAsset;
+  ui.Image? loadedDoorAsset,
+      loadedActiveDoorAsset,
+      loadedEquipmentAsset,
+      loadedActiveEquipmentAsset,
+      loadedMPAsset,
+      loadedActiveMPAsset,
+      loadedDragHandle,
+      loadedWallDragHandle;
 
   bool showUnits = true;
 
@@ -94,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   @override
-  void didChangeDependencies() {
+  void didChangeDependencies() async {
     if (!initialized) {
       initialized = true;
       canvasSize = const Size(2000, 2000);
@@ -112,6 +114,7 @@ class _MyHomePageState extends State<MyHomePage>
         _transformationController,
         animate: false,
       );
+      await loadHandles();
       _undoRedoManager.initialize(grid.clone());
     }
 
@@ -155,13 +158,14 @@ class _MyHomePageState extends State<MyHomePage>
                       details.focalPointDelta.dx,
                       details.focalPointDelta.dy,
                     );
+
                     setState(() {});
                   }
                 },
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
                     setGridState(() {
-                      grid.snapEntityToGrid(selectedEntity!);
+                      // grid.snapEntityToGrid(selectedEntity!);
                     });
                   }
                 },
@@ -184,7 +188,7 @@ class _MyHomePageState extends State<MyHomePage>
                               grid.entities.whereType<InternalWall>().toList(),
                         ),
                       ),
-                    _buildOverlayIcon(),
+                    _buildOverlayIcon()
                   ],
                 ),
               ),
@@ -284,6 +288,44 @@ class _MyHomePageState extends State<MyHomePage>
     );
   }
 
+  // Widget _buildOverlayIcon() {
+  //   if (selectedEntity != null) {
+  //     if (selectedEntity is DragHandle) {
+  //       return CustomPaint(
+  //         size: canvasSize,
+  //         painter: IconPainter(
+  //           position: Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
+  //           icon: const Icon(
+  //             Icons.zoom_out_map,
+  //             color: Color(0xFF2463EB),
+  //             size: 40,
+  //           ),
+  //         ),
+  //       );
+  //     } else if (selectedEntity is Wall) {
+  //       return CustomPaint(
+  //         size: canvasSize,
+  //         painter: IconPainter(
+  //           position: Wall.getCenter(selectedEntity),
+  //           icon: const Icon(
+  //             Icons.zoom_out_map,
+  //             color: Color(0xFF2463EB),
+  //             size: 40,
+  //           ),
+  //         ),
+  //       );
+  //     }
+  //   }
+  //   return const SizedBox.shrink();
+  // }
+
+  Future<void> loadHandles() async {
+    loadedDragHandle ??=
+        await SketchHelpers.loadImage('assets/drag_handle.png');
+    loadedWallDragHandle ??=
+        await SketchHelpers.loadImage('assets/wall_move_handle.png');
+  }
+
   Widget _buildOverlayIcon() {
     if (selectedEntity != null) {
       if (selectedEntity is DragHandle) {
@@ -291,11 +333,7 @@ class _MyHomePageState extends State<MyHomePage>
           size: canvasSize,
           painter: IconPainter(
             position: Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
-            icon: const Icon(
-              Icons.zoom_out_map,
-              color: Color(0xFF2463EB),
-              size: 40,
-            ),
+            image: loadedDragHandle!,
           ),
         );
       } else if (selectedEntity is Wall) {
@@ -303,11 +341,8 @@ class _MyHomePageState extends State<MyHomePage>
           size: canvasSize,
           painter: IconPainter(
             position: Wall.getCenter(selectedEntity),
-            icon: const Icon(
-              Icons.zoom_out_map,
-              color: Color(0xFF2463EB),
-              size: 40,
-            ),
+            image: loadedWallDragHandle!,
+            rotationAngle: Wall.getAngle(selectedEntity as Wall),
           ),
         );
       }
@@ -413,8 +448,8 @@ class _MyHomePageState extends State<MyHomePage>
                   grid.removeEntity(wall);
                   grid.addEntity(childWalls.$1);
                   grid.addEntity(childWalls.$2);
-                  grid.snapEntityToGrid(childWalls.$1);
-                  grid.snapEntityToGrid(childWalls.$2);
+                  // grid.snapEntityToGrid(childWalls.$1);
+                  // grid.snapEntityToGrid(childWalls.$2);
                   selectedEntity = null;
                 });
               },

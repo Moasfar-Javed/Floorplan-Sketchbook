@@ -369,4 +369,62 @@ class SketchHelpers {
         throw ArgumentError("Unsupported unit: $unit");
     }
   }
+
+  static bool isSelected(Entity? selectedEntity, Entity entity, Grid grid) {
+    if (selectedEntity != null) {
+      if (selectedEntity is DragHandle && entity is Wall) {
+        if (entity.handleA.isEqual(selectedEntity) ||
+            entity.handleB.isEqual(selectedEntity)) {
+          return true;
+        }
+      } else if (selectedEntity is Wall && selectedEntity.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is DragHandle && entity is InternalWall) {
+        if (entity.handleA.isEqual(selectedEntity) ||
+            entity.handleB.isEqual(selectedEntity)) {
+          return true;
+        }
+      } else if (selectedEntity is InternalWall &&
+          selectedEntity.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is DragHandle && entity is Window) {
+        if (entity.handleA.isEqual(selectedEntity) ||
+            entity.handleB.isEqual(selectedEntity)) {
+          return true;
+        }
+      } else if (selectedEntity is Equipment &&
+          selectedEntity.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is Window && selectedEntity.isEqual(entity)) {
+        return true;
+      } else if (selectedEntity is Door && selectedEntity.isEqual(entity)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool isRelativePerpendicular(
+      Entity? selectedEntity, Entity wall, Grid grid) {
+    if (wall is! Wall || selectedEntity is Wall) return false;
+    for (var otherWall in grid.entities.whereType<Wall>()) {
+      if (wall.hashCode == otherWall.hashCode) continue; // Skip self
+
+      // Compute vectors
+      final vectorA = Offset(
+        wall.handleB.x - wall.handleA.x,
+        wall.handleB.y - wall.handleA.y,
+      );
+      final vectorB = Offset(
+        otherWall.handleB.x - otherWall.handleA.x,
+        otherWall.handleB.y - otherWall.handleA.y,
+      );
+
+      // Check for perpendicularity
+      if ((vectorA.dx * vectorB.dx + vectorA.dy * vectorB.dy).abs() < 1e-5) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

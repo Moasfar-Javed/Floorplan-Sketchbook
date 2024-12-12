@@ -8,6 +8,7 @@ import 'package:sketchbook/models/entities/window.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/grid.dart';
 import 'package:sketchbook/models/entities/wall.dart';
+import 'package:sketchbook/sketch_helpers.dart';
 
 class BasePainter extends CustomPainter {
   final Entity? selectedEntity;
@@ -54,7 +55,12 @@ class BasePainter extends CustomPainter {
     for (var entity in sortedEntities) {
       entity.draw(
         canvas,
-        _isSelected(entity) ? EntityState.focused : EntityState.normal,
+        SketchHelpers.isSelected(selectedEntity, entity, grid)
+            ? SketchHelpers.isRelativePerpendicular(
+                    selectedEntity, entity, grid)
+                ? EntityState.relativePerpendicular
+                : EntityState.focused
+            : EntityState.normal,
       );
     }
   }
@@ -121,40 +127,6 @@ class BasePainter extends CustomPainter {
     for (double y = 0; y <= size.height; y += grid.cellSize) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
-  }
-
-  bool _isSelected(Entity entity) {
-    if (selectedEntity != null) {
-      if (selectedEntity is DragHandle && entity is Wall) {
-        if (entity.handleA.isEqual(selectedEntity!) ||
-            entity.handleB.isEqual(selectedEntity!)) {
-          return true;
-        }
-      } else if (selectedEntity is Wall && selectedEntity!.isEqual(entity)) {
-        return true;
-      } else if (selectedEntity is DragHandle && entity is InternalWall) {
-        if (entity.handleA.isEqual(selectedEntity!) ||
-            entity.handleB.isEqual(selectedEntity!)) {
-          return true;
-        }
-      } else if (selectedEntity is InternalWall &&
-          selectedEntity!.isEqual(entity)) {
-        return true;
-      } else if (selectedEntity is DragHandle && entity is Window) {
-        if (entity.handleA.isEqual(selectedEntity!) ||
-            entity.handleB.isEqual(selectedEntity!)) {
-          return true;
-        }
-      } else if (selectedEntity is Equipment &&
-          selectedEntity!.isEqual(entity)) {
-        return true;
-      } else if (selectedEntity is Window && selectedEntity!.isEqual(entity)) {
-        return true;
-      } else if (selectedEntity is Door && selectedEntity!.isEqual(entity)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   @override

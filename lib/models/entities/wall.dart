@@ -99,6 +99,15 @@ class Wall extends Entity {
           Offset(handleB.x, handleB.y),
           borderPaint,
         );
+      } else if (state == EntityState.relativePerpendicular) {
+        paint.color = const Color.fromARGB(255, 2, 179, 85); // Light blue color
+        final borderPaint = Paint()..color = paint.color;
+        borderPaint.strokeWidth = thickness; // Border width
+        canvas.drawLine(
+          Offset(handleA.x, handleA.y),
+          Offset(handleB.x, handleB.y),
+          borderPaint,
+        );
       }
       canvas.drawLine(
         Offset(handleA.x, handleA.y),
@@ -199,5 +208,12 @@ class Wall extends Entity {
   static Offset getCenter(wall) {
     return Offset((wall.handleA.x + wall.handleB.x) / 2,
         (wall.handleA.y + wall.handleB.y) / 2);
+  }
+
+  static double getAngle(Wall entity) {
+    return atan2(
+      entity.handleB.y - entity.handleA.y,
+      entity.handleB.x - entity.handleA.x,
+    );
   }
 }

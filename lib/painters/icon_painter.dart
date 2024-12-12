@@ -1,41 +1,46 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 
 class IconPainter extends CustomPainter {
   final Offset position;
-  final Icon icon;
+  final ui.Image image;
+  final double rotationAngle;
 
   IconPainter({
     required this.position,
-    required this.icon,
+    required this.image,
+    this.rotationAngle = 0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (position != Offset.zero) {
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: String.fromCharCode(icon.icon!.codePoint),
-          style: TextStyle(
-            fontSize: icon.size ?? 24,
-            fontFamily: icon.icon!.fontFamily,
-            package: icon.icon!.fontPackage,
-            color: icon.color ?? Colors.black,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
+      final paint = Paint();
+      final imageWidth = image.width.toDouble();
+      final imageHeight = image.height.toDouble();
 
-      textPainter.layout();
+      // Save the canvas state
+      canvas.save();
 
-      // Draw the icon at the specified position
-      final offset =
-          position - Offset(textPainter.width / 2, textPainter.height / 2);
-      textPainter.paint(canvas, offset);
+      // Move the canvas to the position of the image
+      canvas.translate(position.dx, position.dy);
+
+      // Rotate the canvas by the specified angle
+      canvas.rotate(rotationAngle);
+
+      // Draw the image, centering it on the rotated canvas
+      final offset = Offset(-imageWidth / 2, -imageHeight / 2);
+      canvas.drawImage(image, offset, paint);
+
+      // Restore the canvas state
+      canvas.restore();
     }
   }
 
   @override
   bool shouldRepaint(covariant IconPainter oldDelegate) {
-    return oldDelegate.position != position || oldDelegate.icon != icon;
+    return oldDelegate.position != position ||
+        oldDelegate.image != image ||
+        oldDelegate.rotationAngle != rotationAngle;
   }
 }
