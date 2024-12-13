@@ -25,6 +25,11 @@ abstract class Entity with CloneableMixin<Entity> {
     y += deltaY;
   }
 
+  void snap(double offsetX, double offsetY) {
+    x = offsetX;
+    y = offsetY;
+  }
+
   Offset position() {
     return Offset(x, y);
   }

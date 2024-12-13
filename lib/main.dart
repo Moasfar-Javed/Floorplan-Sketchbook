@@ -152,16 +152,8 @@ class _MyHomePageState extends State<MyHomePage>
                 panEnabled: selectedEntity == null,
                 scaleEnabled: selectedEntity == null,
                 minScale: 0.5,
-                onInteractionUpdate: (details) {
-                  if (selectedEntity != null) {
-                    selectedEntity?.move(
-                      details.focalPointDelta.dx,
-                      details.focalPointDelta.dy,
-                    );
-
-                    setState(() {});
-                  }
-                },
+                onInteractionUpdate: (details) =>
+                    _handleInteractionUpdate(details),
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
                     setGridState(() {
@@ -199,6 +191,50 @@ class _MyHomePageState extends State<MyHomePage>
         ),
       ),
     );
+  }
+
+  _handleInteractionUpdate(ScaleUpdateDetails details) {
+    if (selectedEntity != null) {
+      if (selectedEntity is DragHandle) {
+        DragHandle handle = selectedEntity as DragHandle;
+        List<Offset> offsetsToMatch = [];
+        final commonWalls = grid.entities
+            .whereType<Wall>()
+            .where(
+                (e) => e.handleA.isEqual(handle) || e.handleB.isEqual(handle))
+            .toList();
+
+        for (final wall in commonWalls) {
+          final complementingHandle =
+              wall.handleA.isEqual(handle) ? wall.handleB : wall.handleA;
+          offsetsToMatch
+              .add(Offset(complementingHandle.x, complementingHandle.y));
+        }
+
+        final snappingOffset = SketchHelpers.findExactPerpendicularOffset(
+            Offset(selectedEntity!.x + details.focalPointDelta.dx,
+                selectedEntity!.y + details.focalPointDelta.dy),
+            offsetsToMatch);
+
+        if (snappingOffset != null) {
+          selectedEntity?.snap(
+            snappingOffset.dx,
+            snappingOffset.dy,
+          );
+        } else {
+          selectedEntity?.move(
+            details.focalPointDelta.dx,
+            details.focalPointDelta.dy,
+          );
+        }
+      } else {
+        selectedEntity?.move(
+          details.focalPointDelta.dx,
+          details.focalPointDelta.dy,
+        );
+      }
+      setState(() {});
+    }
   }
 
   Widget _buildOptionsWidget() {
@@ -287,37 +323,6 @@ class _MyHomePageState extends State<MyHomePage>
       ),
     );
   }
-
-  // Widget _buildOverlayIcon() {
-  //   if (selectedEntity != null) {
-  //     if (selectedEntity is DragHandle) {
-  //       return CustomPaint(
-  //         size: canvasSize,
-  //         painter: IconPainter(
-  //           position: Offset(selectedEntity?.x ?? 0, selectedEntity?.y ?? 0),
-  //           icon: const Icon(
-  //             Icons.zoom_out_map,
-  //             color: Color(0xFF2463EB),
-  //             size: 40,
-  //           ),
-  //         ),
-  //       );
-  //     } else if (selectedEntity is Wall) {
-  //       return CustomPaint(
-  //         size: canvasSize,
-  //         painter: IconPainter(
-  //           position: Wall.getCenter(selectedEntity),
-  //           icon: const Icon(
-  //             Icons.zoom_out_map,
-  //             color: Color(0xFF2463EB),
-  //             size: 40,
-  //           ),
-  //         ),
-  //       );
-  //     }
-  //   }
-  //   return const SizedBox.shrink();
-  // }
 
   Future<void> loadHandles() async {
     loadedDragHandle ??=

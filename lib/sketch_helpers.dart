@@ -427,4 +427,44 @@ class SketchHelpers {
     }
     return false;
   }
+
+  static Offset? findExactPerpendicularOffset(
+      Offset targetOffset, List<Offset> matchOffsets,
+      {double tolerance = 3.0}) {
+    Offset? resultOffset;
+    double shortestDistance = double.infinity;
+
+    for (var offset in matchOffsets) {
+      // already perpendicular to this point
+      if (offset.dx == targetOffset.dx || offset.dy == targetOffset.dy) {
+        continue;
+      }
+
+      // offset is perpendicular within tolerance
+      bool isWithinTolerance =
+          (offset.dx - targetOffset.dx).abs() <= tolerance ||
+              (offset.dy - targetOffset.dy).abs() <= tolerance;
+
+      if (isWithinTolerance) {
+        // exact perpendicular projection
+        Offset projectedOffset;
+        if ((offset.dx - targetOffset.dx).abs() <= tolerance) {
+          // vertically
+          projectedOffset = Offset(offset.dx, targetOffset.dy);
+        } else {
+          // horizontally
+          projectedOffset = Offset(targetOffset.dx, offset.dy);
+        }
+
+        final distance = (targetOffset - projectedOffset).distance;
+
+        if (distance < shortestDistance) {
+          shortestDistance = distance;
+          resultOffset = projectedOffset;
+        }
+      }
+    }
+
+    return resultOffset;
+  }
 }
