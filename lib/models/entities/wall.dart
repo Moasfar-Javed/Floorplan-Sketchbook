@@ -73,6 +73,47 @@ class Wall extends Entity {
       sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
 
   @override
+  bool contains(Offset position) {
+    return SketchHelpers.distanceToLineSegment(position,
+            Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
+        thickness / 2 + 10;
+  }
+
+  DragHandle getClosestHandle(Offset position) {
+    double distanceToLeft = (position - Offset(handleA.x, handleA.y)).distance;
+    double distanceToRight = (position - Offset(handleB.x, handleB.y)).distance;
+
+    return distanceToLeft < distanceToRight ? handleA : handleB;
+  }
+
+  @override
+  void move(double deltaX, double deltaY) {
+    final perpVector = getPerpendicularDirectionVector(this);
+
+    // normalized perpendicular vector
+    final double perpLength =
+        sqrt(perpVector.dx * perpVector.dx + perpVector.dy * perpVector.dy);
+    final double unitPerpDx = perpVector.dx / perpLength;
+    final double unitPerpDy = perpVector.dy / perpLength;
+
+    // project the movement onto the perpendicular vector
+    final double projection = deltaX * unitPerpDx + deltaY * unitPerpDy;
+    final double projectedDeltaX = projection * unitPerpDx;
+    final double projectedDeltaY = projection * unitPerpDy;
+
+    handleA.move(projectedDeltaX, projectedDeltaY);
+    handleB.move(projectedDeltaX, projectedDeltaY);
+
+    x = handleA.x;
+    y = (handleA.y + handleB.y) / 2;
+  }
+
+  static double getAngle(Wall entity) {
+    return atan2(entity.handleB.y - entity.handleA.y,
+        entity.handleB.x - entity.handleA.x);
+  }
+
+  @override
   void draw(Canvas canvas, EntityState state) {
     if (wallState == WallState.removed) {
       var paint = Paint()
@@ -148,28 +189,6 @@ class Wall extends Entity {
     }
   }
 
-  @override
-  bool contains(Offset position) {
-    return SketchHelpers.distanceToLineSegment(position,
-            Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
-        thickness / 2 + 10;
-  }
-
-  DragHandle getClosestHandle(Offset position) {
-    double distanceToLeft = (position - Offset(handleA.x, handleA.y)).distance;
-    double distanceToRight = (position - Offset(handleB.x, handleB.y)).distance;
-
-    return distanceToLeft < distanceToRight ? handleA : handleB;
-  }
-
-  @override
-  void move(double deltaX, double deltaY) {
-    handleA.move(deltaX, deltaY);
-    handleB.move(deltaX, deltaY);
-    x = handleA.x;
-    y = (handleA.y + handleB.y) / 2;
-  }
-
   (Wall, Wall) split(Wall wall) {
     Offset center = getCenter(wall);
 
@@ -210,10 +229,12 @@ class Wall extends Entity {
         (wall.handleA.y + wall.handleB.y) / 2);
   }
 
-  static double getAngle(Wall entity) {
-    return atan2(
-      entity.handleB.y - entity.handleA.y,
-      entity.handleB.x - entity.handleA.x,
-    );
+  static Offset getPerpendicularDirectionVector(Wall wall) {
+    final double wallDx = wall.handleB.x - wall.handleA.x;
+    final double wallDy = wall.handleB.y - wall.handleA.y;
+
+    final double perpDx = -wallDy;
+    final double perpDy = wallDx;
+    return Offset(perpDx, perpDy);
   }
 }

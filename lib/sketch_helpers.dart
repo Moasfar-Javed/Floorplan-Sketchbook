@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sketchbook/main.dart';
@@ -405,12 +407,13 @@ class SketchHelpers {
   }
 
   static bool isRelativePerpendicular(
-      Entity? selectedEntity, Entity wall, Grid grid) {
+      Entity? selectedEntity, Entity wall, Grid grid,
+      {double tolerance = 3.0}) {
     if (wall is! Wall || selectedEntity is Wall) return false;
-    for (var otherWall in grid.entities.whereType<Wall>()) {
-      if (wall.hashCode == otherWall.hashCode) continue; // Skip self
 
-      // Compute vectors
+    for (var otherWall in grid.entities.whereType<Wall>()) {
+      if (wall.hashCode == otherWall.hashCode) continue; // skip self
+
       final vectorA = Offset(
         wall.handleB.x - wall.handleA.x,
         wall.handleB.y - wall.handleA.y,
@@ -420,13 +423,57 @@ class SketchHelpers {
         otherWall.handleB.y - otherWall.handleA.y,
       );
 
-      // Check for perpendicularity
-      if ((vectorA.dx * vectorB.dx + vectorA.dy * vectorB.dy).abs() < 1e-5) {
-        return true;
+      final dotProduct =
+          (vectorA.dx * vectorB.dx + vectorA.dy * vectorB.dy).abs();
+      if (dotProduct < tolerance) {
+        return true; // perpendicular within tolerance
       }
     }
     return false;
   }
+
+  // static Offset? findExactPerpendicularOffset(
+  //     Offset targetOffset, List<Offset> matchOffsets,
+  //     {double tolerance = 3.0}) {
+  //   Offset? resultOffset;
+  //   double shortestDistance = double.infinity;
+
+  //   print(targetOffset);
+  //   print(matchOffsets);
+
+  //   for (var offset in matchOffsets) {
+  //     // already perpendicular to this point
+  //     if (offset.dx == targetOffset.dx || offset.dy == targetOffset.dy) {
+  //       continue;
+  //     }
+
+  //     // offset is perpendicular within tolerance
+  //     bool isWithinTolerance =
+  //         (offset.dx - targetOffset.dx).abs() <= tolerance ||
+  //             (offset.dy - targetOffset.dy).abs() <= tolerance;
+
+  //     if (isWithinTolerance) {
+  //       // exact perpendicular projection
+  //       Offset projectedOffset;
+  //       if ((offset.dx - targetOffset.dx).abs() <= tolerance) {
+  //         // vertically
+  //         projectedOffset = Offset(offset.dx, targetOffset.dy);
+  //       } else {
+  //         // horizontally
+  //         projectedOffset = Offset(targetOffset.dx, offset.dy);
+  //       }
+
+  //       final distance = (targetOffset - projectedOffset).distance;
+
+  //       if (distance < shortestDistance) {
+  //         shortestDistance = distance;
+  //         resultOffset = projectedOffset;
+  //       }
+  //     }
+  //   }
+
+  //   return resultOffset;
+  // }
 
   static Offset? findExactPerpendicularOffset(
       Offset targetOffset, List<Offset> matchOffsets,
@@ -435,12 +482,44 @@ class SketchHelpers {
     double shortestDistance = double.infinity;
 
     for (var offset in matchOffsets) {
-      // already perpendicular to this point
+      // Skip points that are already directly aligned (horizontally or vertically)
       if (offset.dx == targetOffset.dx || offset.dy == targetOffset.dy) {
         continue;
       }
 
-      // offset is perpendicular within tolerance
+      // Check for collinearity (including diagonal lines) between targetOffset and offset
+      for (var nextOffset in matchOffsets) {
+        if (nextOffset == offset) continue;
+
+        // Check for collinearity using the cross product approach
+        double dx1 = offset.dx - targetOffset.dx;
+        double dy1 = offset.dy - targetOffset.dy;
+        double dx2 = nextOffset.dx - targetOffset.dx;
+        double dy2 = nextOffset.dy - targetOffset.dy;
+
+        double crossProduct = dx1 * dy2 - dy1 * dx2;
+
+        // If the cross product is close to 0, the points are collinear (including diagonal)
+        if (crossProduct.abs() <= tolerance) {
+          // Now check if targetOffset lies between the two collinear points
+          bool isBetweenX = (targetOffset.dx >= offset.dx &&
+                  targetOffset.dx <= nextOffset.dx) ||
+              (targetOffset.dx >= nextOffset.dx &&
+                  targetOffset.dx <= offset.dx);
+
+          bool isBetweenY = (targetOffset.dy >= offset.dy &&
+                  targetOffset.dy <= nextOffset.dy) ||
+              (targetOffset.dy >= nextOffset.dy &&
+                  targetOffset.dy <= offset.dy);
+
+          if (isBetweenX && isBetweenY) {
+            // If targetOffset lies between offset and nextOffset, it's part of the line segment
+            return targetOffset;
+          }
+        }
+      }
+
+      // Perpendicular projection logic (same as before)
       bool isWithinTolerance =
           (offset.dx - targetOffset.dx).abs() <= tolerance ||
               (offset.dy - targetOffset.dy).abs() <= tolerance;
@@ -466,5 +545,44 @@ class SketchHelpers {
     }
 
     return resultOffset;
+  }
+
+  static double distanceToLine(Offset point, Offset lineStart, Offset lineEnd) {
+    final double lineLength = (lineEnd - lineStart).distance;
+    if (lineLength == 0) return (point - lineStart).distance;
+
+    // Project the point onto the line
+    double t = ((point.dx - lineStart.dx) * (lineEnd.dx - lineStart.dx) +
+            (point.dy - lineStart.dy) * (lineEnd.dy - lineStart.dy)) /
+        (lineLength * lineLength);
+
+    t = t.clamp(0.0, 1.0); // Ensure projection is within the line segment
+
+    final projectedPoint = Offset(
+      lineStart.dx + t * (lineEnd.dx - lineStart.dx),
+      lineStart.dy + t * (lineEnd.dy - lineStart.dy),
+    );
+
+    return (point - projectedPoint).distance;
+  }
+
+  static double getRelativeAngleDifference(double angleA, double angleB) {
+    double angleDifference = angleA - angleB;
+
+    if (angleDifference > pi) {
+      angleDifference -= 2 * pi;
+    } else if (angleDifference < -pi) {
+      angleDifference += 2 * pi;
+    }
+
+    return angleDifference;
+  }
+
+  static double? calculateSlope(Offset pointA, Offset pointB) {
+    if (pointA.dx == pointB.dx) {
+      return null;
+    }
+
+    return (pointB.dy - pointA.dy) / (pointB.dx - pointA.dx);
   }
 }

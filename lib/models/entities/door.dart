@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
+import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
@@ -23,6 +24,58 @@ class Door extends Entity {
       : super(
           zIndex: ZIndex.door.value,
         );
+
+  // @override
+  // void draw(Canvas canvas, EntityState state) {
+  //   final paint = Paint();
+  //   final asset = state == EntityState.focused ? doorActiveAsset : doorAsset;
+  //   final imageWidth = asset.width.toDouble();
+  //   final imageHeight = asset.height.toDouble();
+  //   final scaleX = size / imageWidth;
+  //   final scaleY = size / imageHeight;
+
+  //   final matrix = Matrix4.identity()
+  //     ..translate(x, y)
+  //     ..rotateZ(rotation)
+  //     ..scale(scaleX, scaleY)
+  //     ..translate(-imageWidth / 2, -imageHeight / 2);
+
+  //   canvas.save();
+  //   canvas.transform(matrix.storage);
+  //   canvas.drawImage(
+  //     asset,
+  //     const Offset(0, 0),
+  //     paint,
+  //   );
+
+  //   canvas.restore();
+  // }
+
+  @override
+  void draw(Canvas canvas, EntityState state) {
+    final paint = Paint();
+    final asset = state == EntityState.focused ? doorActiveAsset : doorAsset;
+    final imageWidth = asset.width.toDouble();
+    final imageHeight = asset.height.toDouble();
+    final scaleX = size / imageWidth;
+    final scaleY = size / imageHeight;
+
+    final matrix = Matrix4.identity()
+      ..translate(x - 20, y - (imageHeight * scaleY) / 2)
+      ..rotateZ(rotation)
+      ..scale(scaleX, scaleY)
+      ..translate(-imageWidth / 2, -imageHeight / 2);
+
+    canvas.save();
+    canvas.transform(matrix.storage);
+    canvas.drawImage(
+      asset,
+      const Offset(0, 0),
+      paint,
+    );
+
+    canvas.restore();
+  }
 
   factory Door.fromJson(
     Map<String, dynamic> json,
@@ -67,32 +120,6 @@ class Door extends Entity {
   bool contains(Offset position) {
     const double hitAreaRadius = size + 10;
     return (position - Offset(x, y)).distance <= hitAreaRadius;
-  }
-
-  @override
-  void draw(Canvas canvas, EntityState state) {
-    final paint = Paint();
-    final asset = state == EntityState.focused ? doorActiveAsset : doorAsset;
-    final imageWidth = asset.width.toDouble();
-    final imageHeight = asset.height.toDouble();
-    final scaleX = size / imageWidth;
-    final scaleY = size / imageHeight;
-
-    final matrix = Matrix4.identity()
-      ..translate(x, y)
-      ..rotateZ(rotation)
-      ..scale(scaleX, scaleY)
-      ..translate(-imageWidth / 2, -imageHeight / 2);
-
-    canvas.save();
-    canvas.transform(matrix.storage);
-    canvas.drawImage(
-      asset,
-      const Offset(0, 0),
-      paint,
-    );
-
-    canvas.restore();
   }
 
   void rotateClockwise() {

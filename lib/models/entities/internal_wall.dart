@@ -24,6 +24,9 @@ class InternalWall extends Entity {
           zIndex: ZIndex.internalWall.value,
         );
 
+  double get length =>
+      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
+
   factory InternalWall.fromJson(
     Map<String, dynamic> json,
   ) {
@@ -48,9 +51,6 @@ class InternalWall extends Entity {
       'handleB': handleB.toJson(),
     };
   }
-
-  double get length =>
-      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
 
   @override
   InternalWall clone() {
@@ -91,5 +91,56 @@ class InternalWall extends Entity {
   void move(double deltaX, double deltaY) {
     handleA.move(deltaX, deltaY);
     handleB.move(deltaX, deltaY);
+  }
+
+  static double getAngle(InternalWall entity) {
+    return atan2(entity.handleB.y - entity.handleA.y,
+        entity.handleB.x - entity.handleA.x);
+  }
+
+  void rotate(double angle, String handleId) {
+    // Choose the handle to rotate based on the id
+    if (handleId == handleA.id) {
+      // If rotating handleA, rotate handleB (relative to handleA)
+      _rotateHandle(handleB, angle, handleA);
+    } else if (handleId == handleB.id) {
+      // If rotating handleB, rotate handleA (relative to handleB)
+      _rotateHandle(handleA, angle, handleB);
+    }
+  }
+
+  // Helper method to rotate a handle around the other
+  void _rotateHandle(
+      DragHandle handleToMove, double angle, DragHandle pivotHandle) {
+    double dx = handleToMove.x - pivotHandle.x;
+    double dy = handleToMove.y - pivotHandle.y;
+
+    // Apply rotation formula
+    double newX = pivotHandle.x + dx * cos(angle) - dy * sin(angle);
+    double newY = pivotHandle.y + dx * sin(angle) + dy * cos(angle);
+
+    // Update the handle's position
+    handleToMove.x = newX;
+    handleToMove.y = newY;
+
+    // Maintain the length by adjusting the other handle (if necessary)
+    double currentLength = length;
+    double newLength =
+        currentLength; // The length should stay the same after rotation.
+
+    // Recalculate handle B position based on the new length and the new angle
+    if (handleToMove == handleA) {
+      double dx = handleB.x - handleA.x;
+      double dy = handleB.y - handleA.y;
+      double angleB = atan2(dy, dx);
+      handleB.x = handleA.x + cos(angleB) * newLength;
+      handleB.y = handleA.y + sin(angleB) * newLength;
+    } else {
+      double dx = handleA.x - handleB.x;
+      double dy = handleA.y - handleB.y;
+      double angleA = atan2(dy, dx);
+      handleA.x = handleB.x + cos(angleA) * newLength;
+      handleA.y = handleB.y + sin(angleA) * newLength;
+    }
   }
 }

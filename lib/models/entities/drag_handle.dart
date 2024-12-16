@@ -77,4 +77,9 @@ class DragHandle extends Entity {
 
     canvas.drawCircle(Offset(x, y), size, paint);
   }
+
+  void setPosition(double newX, double newY) {
+    x = newX;
+    y = newY;
+  }
 }
