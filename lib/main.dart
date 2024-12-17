@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:ui' as ui;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:sketchbook/file_util.dart';
 import 'package:sketchbook/models/entities/door.dart';
@@ -24,6 +26,7 @@ import 'package:sketchbook/painters/unit_painter.dart';
 import 'package:sketchbook/sketch_helpers.dart';
 import 'package:undo_redo/undo_redo.dart';
 import 'package:uuid/uuid.dart';
+import 'package:vector_math/vector_math_64.dart' as vector;
 
 const cellSizeUnitPx = 20.0;
 const oneCellToInches = 5; // one cell is 5 inches
@@ -275,7 +278,8 @@ class _MyHomePageState extends State<MyHomePage>
     DragHandle? closeInternalWallHandle;
     DragHandle? farInternalWallHandle;
     double minDistance = double.infinity;
-    double targetLength = internalWall.length;
+    double preserveLength = internalWall.length;
+    double initialAngle = _calculateAngle(internalWall);
 
     // Find the closest wall and handles
     for (Wall wall in walls) {
@@ -290,11 +294,11 @@ class _MyHomePageState extends State<MyHomePage>
         double distanceToHandleB =
             handleDistanceFromWall(internalWall.handleB, wall);
 
-        closeInternalWallHandle = (distanceToHandleA < distanceToHandleB)
+        closeInternalWallHandle = (distanceToHandleA <= distanceToHandleB)
             ? internalWall.handleA
             : internalWall.handleB;
 
-        farInternalWallHandle = (distanceToHandleA > distanceToHandleB)
+        farInternalWallHandle = (distanceToHandleA >= distanceToHandleB)
             ? internalWall.handleA
             : internalWall.handleB;
       }
@@ -306,39 +310,92 @@ class _MyHomePageState extends State<MyHomePage>
       return;
     }
 
-    print('before length: ${internalWall.length}');
-    print('before angle: ${angleBetweenWalls(internalWall, closestWall)}');
     Offset closestPoint =
         _findClosestPointOnWall(closeInternalWallHandle, closestWall);
 
-    // Move the closest internal wall handle to the closest point
     closeInternalWallHandle.setPosition(closestPoint.dx, closestPoint.dy);
 
-    // Calculate the vector between the two handles (dx, dy)
-    double dx = farInternalWallHandle.x - closeInternalWallHandle.x;
-    double dy = farInternalWallHandle.y - closeInternalWallHandle.y;
+    Offset newFarHandlePosition = _calculateNewFarHandlePosition(
+        internalWall, closestPoint, preserveLength, initialAngle);
 
-    // Calculate the current distance between the two handles
-    double currentDistance = sqrt(dx * dx + dy * dy);
+    // Check if new far handle position is within the closest wall's bounds
+    if (!_isPointInsidePath(newFarHandlePosition)) {
+      double currentLength =
+          (Offset(farInternalWallHandle.x, farInternalWallHandle.y) -
+                  closestPoint)
+              .distance;
+      double availableLength = internalWall.length;
 
-    // Preserve the length of the internal wall
-    double scaleFactor = targetLength / currentDistance;
+      if (availableLength < 10) {
+        return;
+      } else if (availableLength < currentLength) {
+        double trimmedLength = max(availableLength, 10);
+        newFarHandlePosition = _calculateNewFarHandlePosition(
+            internalWall, closestPoint, trimmedLength, initialAngle);
+      } else {
+        initialAngle = initialAngle + pi;
+        newFarHandlePosition = _calculateNewFarHandlePosition(
+            internalWall, closestPoint, preserveLength, initialAngle);
 
-    // Calculate the angle between the two handles (in radians)
-    double angle = atan2(dy, dx);
+        if (!_isPointInsidePath(newFarHandlePosition)) {
+          availableLength =
+              _calculateAvailableLengthWithinBounds(closestPoint, initialAngle);
+          if (availableLength < 10) {
+            return;
+          } else {
+            double trimmedLength = max(availableLength, 10);
+            newFarHandlePosition = _calculateNewFarHandlePosition(
+                internalWall, closestPoint, trimmedLength, initialAngle);
+          }
+        }
+      }
+    }
 
-    // Calculate the new position for the far handle using the scaling factor
+    farInternalWallHandle.setPosition(
+        newFarHandlePosition.dx, newFarHandlePosition.dy);
+  }
+
+  double _calculateAvailableLengthWithinBounds(
+      Offset startPoint, double angle) {
+    Path? wallsPath = SketchHelpers.getWallsPath(grid);
+    if (wallsPath == null) return 0;
+
+    double maxLength = 0;
+    for (double length = 0; length <= 1000; length += 1) {
+      // Increment by small steps
+      Offset testPoint = Offset(startPoint.dx + length * cos(angle),
+          startPoint.dy + length * sin(angle));
+      if (!_isPointInsidePath(testPoint)) {
+        maxLength = length;
+        break;
+      }
+      maxLength = length;
+    }
+    return maxLength;
+  }
+
+  bool _isPointInsidePath(Offset point) {
+    Path? wallsPath = SketchHelpers.getWallsPath(grid);
+
+    return wallsPath?.contains(point) ?? false;
+  }
+
+  Offset _calculateNewFarHandlePosition(
+      InternalWall internalWall,
+      Offset newCloseHandlePosition,
+      double originalLength,
+      double originalAngle) {
     double newFarHandleX =
-        closeInternalWallHandle.x + cos(angle) * targetLength;
+        newCloseHandlePosition.dx + originalLength * cos(originalAngle);
     double newFarHandleY =
-        closeInternalWallHandle.y + sin(angle) * targetLength;
+        newCloseHandlePosition.dy + originalLength * sin(originalAngle);
+    return Offset(newFarHandleX, newFarHandleY);
+  }
 
-    // Move the far handle to the new position
-    farInternalWallHandle.setPosition(newFarHandleX, newFarHandleY);
-
-    // Debug output for after calculations
-    print('after length: ${internalWall.length}');
-    print('after angle: ${angleBetweenWalls(internalWall, closestWall)}');
+  double _calculateAngle(InternalWall internalWall) {
+    double deltaY = internalWall.handleB.y - internalWall.handleA.y;
+    double deltaX = internalWall.handleB.x - internalWall.handleA.x;
+    return atan2(deltaY, deltaX); // Returns angle in radians
   }
 
   Offset _findClosestPointOnWall(DragHandle dragHandle, Wall wall) {
@@ -1066,6 +1123,7 @@ class _MyHomePageState extends State<MyHomePage>
             final inWall = InternalWall(
               id: generateGuid(),
               thickness: 10,
+              parentWallAngle: Wall.getAngle(wall),
               handleA: DragHandle(
                 id: generateGuid(),
                 x: handleAOffset.dx,

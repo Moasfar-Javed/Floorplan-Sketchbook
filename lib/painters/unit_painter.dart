@@ -42,7 +42,8 @@ class UnitPainter extends CustomPainter {
     wallsPath = _getWallsPath();
 
     for (var wall in walls) {
-      final textPainter = _getTextPainter(wall.length);
+      final textPainter = _getTextPainter(wall.id);
+      // final textPainter = _getTextPainter(wall.length);
 
       // Generate the initial parallel path
       Path parallelPath = _getParallelLine(
@@ -123,7 +124,7 @@ class UnitPainter extends CustomPainter {
     wallsPath = _getWallsPath();
 
     for (var wall in internalWalls) {
-      final textPainter = _getTextPainter(wall.length);
+      final textPainter = _getTextPainter(wall.id);
 
       // Generate the initial parallel path
       Path parallelPath = _getParallelLine(
@@ -251,7 +252,9 @@ class UnitPainter extends CustomPainter {
   TextPainter _getTextPainter(dynamic text) {
     return TextPainter(
       text: TextSpan(
-        text: SketchHelpers.distancePxToUnit(text, unit),
+        text: text.substring(text.length - 4),
+        // todo: uncomment for units
+        // SketchHelpers.distancePxToUnit(text, unit),
         style: const TextStyle(color: Color(0xFF2463EB), fontSize: 12),
       ),
       textAlign: TextAlign.center,

@@ -10,11 +10,13 @@ import 'package:sketchbook/sketch_helpers.dart';
 
 class InternalWall extends Entity {
   final double thickness;
+  final double parentWallAngle;
   DragHandle handleA;
   DragHandle handleB;
 
   InternalWall({
     required super.id,
+    required this.parentWallAngle,
     required this.thickness,
     required this.handleA,
     required this.handleB,
@@ -23,51 +25,6 @@ class InternalWall extends Entity {
           y: (handleA.y + handleB.y) / 2,
           zIndex: ZIndex.internalWall.value,
         );
-
-  double get length =>
-      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
-
-  factory InternalWall.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    return InternalWall(
-      id: json['id'],
-      thickness: json['thickness'],
-      handleA: DragHandle.fromJson(json['handleA']),
-      handleB: DragHandle.fromJson(json['handleB']),
-    );
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'instanceType': EntityInstance.internalWall.value,
-      'x': x,
-      'y': y,
-      'zIndex': zIndex,
-      'thickness': thickness,
-      'handleA': handleA.toJson(),
-      'handleB': handleB.toJson(),
-    };
-  }
-
-  @override
-  InternalWall clone() {
-    return InternalWall(
-      id: id,
-      thickness: thickness,
-      handleA: handleA.clone(),
-      handleB: handleB.clone(),
-    );
-  }
-
-  @override
-  bool contains(Offset position) {
-    return SketchHelpers.distanceToLineSegment(position,
-            Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
-        thickness / 2 + 10;
-  }
 
   @override
   void draw(Canvas canvas, EntityState state) {
@@ -85,6 +42,54 @@ class InternalWall extends Entity {
 
     handleA.draw(canvas, state);
     handleB.draw(canvas, state);
+  }
+
+  double get length =>
+      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
+
+  factory InternalWall.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return InternalWall(
+      id: json['id'],
+      parentWallAngle: json["parentWallAngle"],
+      thickness: json['thickness'],
+      handleA: DragHandle.fromJson(json['handleA']),
+      handleB: DragHandle.fromJson(json['handleB']),
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'parentWallAngle': parentWallAngle,
+      'instanceType': EntityInstance.internalWall.value,
+      'x': x,
+      'y': y,
+      'zIndex': zIndex,
+      'thickness': thickness,
+      'handleA': handleA.toJson(),
+      'handleB': handleB.toJson(),
+    };
+  }
+
+  @override
+  InternalWall clone() {
+    return InternalWall(
+      id: id,
+      parentWallAngle: parentWallAngle,
+      thickness: thickness,
+      handleA: handleA.clone(),
+      handleB: handleB.clone(),
+    );
+  }
+
+  @override
+  bool contains(Offset position) {
+    return SketchHelpers.distanceToLineSegment(position,
+            Offset(handleA.x, handleA.y), Offset(handleB.x, handleB.y)) <
+        thickness / 2 + 10;
   }
 
   @override

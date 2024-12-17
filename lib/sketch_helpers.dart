@@ -547,42 +547,96 @@ class SketchHelpers {
     return resultOffset;
   }
 
-  static double distanceToLine(Offset point, Offset lineStart, Offset lineEnd) {
-    final double lineLength = (lineEnd - lineStart).distance;
-    if (lineLength == 0) return (point - lineStart).distance;
+  // static double distanceToLine(Offset point, Offset lineStart, Offset lineEnd) {
+  //   final double lineLength = (lineEnd - lineStart).distance;
+  //   if (lineLength == 0) return (point - lineStart).distance;
 
-    // Project the point onto the line
-    double t = ((point.dx - lineStart.dx) * (lineEnd.dx - lineStart.dx) +
-            (point.dy - lineStart.dy) * (lineEnd.dy - lineStart.dy)) /
-        (lineLength * lineLength);
+  //   // Project the point onto the line
+  //   double t = ((point.dx - lineStart.dx) * (lineEnd.dx - lineStart.dx) +
+  //           (point.dy - lineStart.dy) * (lineEnd.dy - lineStart.dy)) /
+  //       (lineLength * lineLength);
 
-    t = t.clamp(0.0, 1.0); // Ensure projection is within the line segment
+  //   t = t.clamp(0.0, 1.0); // Ensure projection is within the line segment
 
-    final projectedPoint = Offset(
-      lineStart.dx + t * (lineEnd.dx - lineStart.dx),
-      lineStart.dy + t * (lineEnd.dy - lineStart.dy),
-    );
+  //   final projectedPoint = Offset(
+  //     lineStart.dx + t * (lineEnd.dx - lineStart.dx),
+  //     lineStart.dy + t * (lineEnd.dy - lineStart.dy),
+  //   );
 
-    return (point - projectedPoint).distance;
-  }
+  //   return (point - projectedPoint).distance;
+  // }
 
-  static double getRelativeAngleDifference(double angleA, double angleB) {
-    double angleDifference = angleA - angleB;
+  // static double getRelativeAngleDifference(double angleA, double angleB) {
+  //   double angleDifference = angleA - angleB;
 
-    if (angleDifference > pi) {
-      angleDifference -= 2 * pi;
-    } else if (angleDifference < -pi) {
-      angleDifference += 2 * pi;
+  //   if (angleDifference > pi) {
+  //     angleDifference -= 2 * pi;
+  //   } else if (angleDifference < -pi) {
+  //     angleDifference += 2 * pi;
+  //   }
+
+  //   return angleDifference;
+  // }
+
+  // static double? calculateSlope(Offset pointA, Offset pointB) {
+  //   if (pointA.dx == pointB.dx) {
+  //     return null;
+  //   }
+
+  //   return (pointB.dy - pointA.dy) / (pointB.dx - pointA.dx);
+  // }
+
+   static Path? getWallsPath(Grid grid) {
+    Path path = Path();
+
+    bool firstWall = true;
+    Set<int> visitedWalls = <int>{}; // To track which walls have been visited
+
+    Wall? currentWall = grid.entities
+        .whereType<Wall>()
+        .firstOrNull; // Get the first wall to start from
+
+    if (currentWall != null) {
+      while (currentWall != null &&
+          visitedWalls.length < grid.entities.whereType<Wall>().length + 1) {
+        if (firstWall) {
+          // Start the path at the first wall's handleA
+          path.moveTo(currentWall.handleA.x, currentWall.handleA.y);
+          visitedWalls
+              .add(currentWall.hashCode); // Mark current wall as visited
+          firstWall = false;
+        } else {
+          // Otherwise continue from the last handleB
+          path.lineTo(currentWall.handleA.x, currentWall.handleA.y);
+        }
+
+        // Try to find the next wall by checking for a shared handle
+        Wall? nextWall;
+        if (currentWall.handleA.id == currentWall.handleB.id) {
+          break; // If we encounter a self-loop, exit
+        }
+
+        // Try to find a wall that has handleB as handleA
+        nextWall = grid.entities
+            .whereType<Wall>()
+            .where((entity) =>
+                !visitedWalls.contains(entity.hashCode) &&
+                (entity.handleA.id == currentWall?.handleB.id ||
+                    entity.handleB.id == currentWall?.handleB.id))
+            .firstOrNull;
+
+        if (nextWall != null) {
+          // Move to the next wall
+          currentWall = nextWall;
+          visitedWalls
+              .add(currentWall.hashCode); // Mark the next wall as visited
+        } else {
+          break; // Exit if no next wall is found
+        }
+      }
     }
 
-    return angleDifference;
-  }
-
-  static double? calculateSlope(Offset pointA, Offset pointB) {
-    if (pointA.dx == pointB.dx) {
-      return null;
-    }
-
-    return (pointB.dy - pointA.dy) / (pointB.dx - pointA.dx);
+    path.close(); // Close the path to form the boundary
+    return path;
   }
 }
