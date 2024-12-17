@@ -432,49 +432,6 @@ class SketchHelpers {
     return false;
   }
 
-  // static Offset? findExactPerpendicularOffset(
-  //     Offset targetOffset, List<Offset> matchOffsets,
-  //     {double tolerance = 3.0}) {
-  //   Offset? resultOffset;
-  //   double shortestDistance = double.infinity;
-
-  //   print(targetOffset);
-  //   print(matchOffsets);
-
-  //   for (var offset in matchOffsets) {
-  //     // already perpendicular to this point
-  //     if (offset.dx == targetOffset.dx || offset.dy == targetOffset.dy) {
-  //       continue;
-  //     }
-
-  //     // offset is perpendicular within tolerance
-  //     bool isWithinTolerance =
-  //         (offset.dx - targetOffset.dx).abs() <= tolerance ||
-  //             (offset.dy - targetOffset.dy).abs() <= tolerance;
-
-  //     if (isWithinTolerance) {
-  //       // exact perpendicular projection
-  //       Offset projectedOffset;
-  //       if ((offset.dx - targetOffset.dx).abs() <= tolerance) {
-  //         // vertically
-  //         projectedOffset = Offset(offset.dx, targetOffset.dy);
-  //       } else {
-  //         // horizontally
-  //         projectedOffset = Offset(targetOffset.dx, offset.dy);
-  //       }
-
-  //       final distance = (targetOffset - projectedOffset).distance;
-
-  //       if (distance < shortestDistance) {
-  //         shortestDistance = distance;
-  //         resultOffset = projectedOffset;
-  //       }
-  //     }
-  //   }
-
-  //   return resultOffset;
-  // }
-
   static Offset? findExactPerpendicularOffset(
       Offset targetOffset, List<Offset> matchOffsets,
       {double tolerance = 3.0}) {
@@ -547,46 +504,7 @@ class SketchHelpers {
     return resultOffset;
   }
 
-  // static double distanceToLine(Offset point, Offset lineStart, Offset lineEnd) {
-  //   final double lineLength = (lineEnd - lineStart).distance;
-  //   if (lineLength == 0) return (point - lineStart).distance;
-
-  //   // Project the point onto the line
-  //   double t = ((point.dx - lineStart.dx) * (lineEnd.dx - lineStart.dx) +
-  //           (point.dy - lineStart.dy) * (lineEnd.dy - lineStart.dy)) /
-  //       (lineLength * lineLength);
-
-  //   t = t.clamp(0.0, 1.0); // Ensure projection is within the line segment
-
-  //   final projectedPoint = Offset(
-  //     lineStart.dx + t * (lineEnd.dx - lineStart.dx),
-  //     lineStart.dy + t * (lineEnd.dy - lineStart.dy),
-  //   );
-
-  //   return (point - projectedPoint).distance;
-  // }
-
-  // static double getRelativeAngleDifference(double angleA, double angleB) {
-  //   double angleDifference = angleA - angleB;
-
-  //   if (angleDifference > pi) {
-  //     angleDifference -= 2 * pi;
-  //   } else if (angleDifference < -pi) {
-  //     angleDifference += 2 * pi;
-  //   }
-
-  //   return angleDifference;
-  // }
-
-  // static double? calculateSlope(Offset pointA, Offset pointB) {
-  //   if (pointA.dx == pointB.dx) {
-  //     return null;
-  //   }
-
-  //   return (pointB.dy - pointA.dy) / (pointB.dx - pointA.dx);
-  // }
-
-   static Path? getWallsPath(Grid grid) {
+  static Path? getWallsPath(Grid grid) {
     Path path = Path();
 
     bool firstWall = true;
@@ -638,5 +556,184 @@ class SketchHelpers {
 
     path.close(); // Close the path to form the boundary
     return path;
+  }
+
+  static double inWallToWallAngle(InternalWall internalWall, Wall wall) {
+    // Get the coordinates of the handles for both the internal wall and the wall
+    double x1 = internalWall.handleA.x;
+    double y1 = internalWall.handleA.y;
+    double x2 = internalWall.handleB.x;
+    double y2 = internalWall.handleB.y;
+    double x3 = wall.handleA.x;
+    double y3 = wall.handleA.y;
+    double x4 = wall.handleB.x;
+    double y4 = wall.handleB.y;
+
+    // Compute the vectors for both wall segments
+    double dx1 = x2 - x1;
+    double dy1 = y2 - y1;
+    double dx2 = x4 - x3;
+    double dy2 = y4 - y3;
+
+    // Compute the dot product and magnitudes of the vectors
+    double dotProduct = dx1 * dx2 + dy1 * dy2;
+    double magnitude1 = sqrt(dx1 * dx1 + dy1 * dy1);
+    double magnitude2 = sqrt(dx2 * dx2 + dy2 * dy2);
+
+    // Calculate the cosine of the angle between the two vectors
+    double cosAngle = dotProduct / (magnitude1 * magnitude2);
+
+    // Ensure that the cosine value is within the valid range for acos
+    cosAngle = cosAngle.clamp(-1.0, 1.0);
+
+    // Calculate the angle in radians and convert to degrees
+    double angleInRadians = acos(cosAngle);
+    double angleInDegrees = angleInRadians * 180 / pi;
+
+    return angleInDegrees;
+  }
+
+  static double handleDistanceFromWall(DragHandle dragHandle, Wall wall) {
+    // Get the two handles of the wall
+    Offset wallHandleA = Offset(wall.handleA.x, wall.handleA.y);
+    Offset wallHandleB = Offset(wall.handleB.x, wall.handleB.y);
+
+    // Get the position of the dragHandle
+    Offset dragPosition = Offset(dragHandle.x, dragHandle.y);
+
+    // Function to calculate the distance from the dragHandle to the wall
+    double calculateDistanceFromWall(
+        Offset handle, Offset wallA, Offset wallB) {
+      // Calculate the vector from wallA to wallB (direction of the wall)
+      Offset wallVector = wallB - wallA;
+      // Calculate the vector from wallA to the handle
+      Offset handleVector = handle - wallA;
+
+      // Project handleVector onto wallVector (perpendicular projection)
+      double projection =
+          (handleVector.dx * wallVector.dx + handleVector.dy * wallVector.dy) /
+              (wallVector.dx * wallVector.dx + wallVector.dy * wallVector.dy);
+
+      // Clamp the projection to ensure it falls within the line segment [wallA, wallB]
+      projection = projection.clamp(0.0, 1.0);
+
+      // Find the closest point on the wall
+      Offset closestPoint = wallA + (wallVector * projection);
+
+      // Return the distance from the handle to the closest point on the wall
+      return (handle - closestPoint).distance;
+    }
+
+    // Calculate and return the distance from the dragHandle to the wall
+    return calculateDistanceFromWall(dragPosition, wallHandleA, wallHandleB);
+  }
+
+  static double inWallDistanceFromWall(InternalWall internalWall, Wall wall) {
+    // Get the coordinates of the handles for both the internal wall and the wall
+    double x1 = internalWall.handleA.x;
+    double y1 = internalWall.handleA.y;
+    double x2 = internalWall.handleB.x;
+    double y2 = internalWall.handleB.y;
+    double x3 = wall.handleA.x;
+    double y3 = wall.handleA.y;
+    double x4 = wall.handleB.x;
+    double y4 = wall.handleB.y;
+
+    // Compute the vectors for the lines of both wall segments
+    double dx1 = x2 - x1;
+    double dy1 = y2 - y1;
+    double dx2 = x4 - x3;
+    double dy2 = y4 - y3;
+
+    // Calculate the determinant to check if the lines are parallel
+    double determinant = dx1 * dy2 - dy1 * dx2;
+
+    if (determinant == 0) {
+      // The lines are parallel, so we compute the perpendicular distance from one segment to the other
+      return _distanceToLine(x1, y1, x3, y3, x4, y4);
+    } else {
+      // The lines are not parallel, compute the intersection point and the distance
+      double t1 = ((x3 - x1) * dy2 - (y3 - y1) * dx2) / determinant;
+      double t2 = ((x3 - x1) * dy1 - (y3 - y1) * dx1) / determinant;
+
+      // If t1 and t2 are between 0 and 1, there is an intersection within the line segments
+      if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
+        // If the intersection is within the bounds, return 0 (there's no need for distance calculation)
+        return 0;
+      } else {
+        // If there's no intersection within the bounds, return the minimum distance from the endpoints
+        return _minDistanceToEndpoints(x1, y1, x2, y2, x3, y3, x4, y4);
+      }
+    }
+  }
+
+// Function to calculate the perpendicular distance from a point to a line
+  static double _distanceToLine(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
+    // Distance from point (x1, y1) to the line segment (x2, y2) - (x3, y3)
+    return ((y3 - y2) * x1 - (x3 - x2) * y1 + x3 * y2 - y3 * x2).abs() /
+        sqrt(pow(y3 - y2, 2) + pow(x3 - x2, 2));
+  }
+
+// Function to calculate the minimum distance between two line segments (endpoints)
+  static double _minDistanceToEndpoints(double x1, double y1, double x2,
+      double y2, double x3, double y3, double x4, double y4) {
+    // Distance from a point to a line
+    double dist1 = _distanceToLine(x1, y1, x3, y3, x4, y4);
+    double dist2 = _distanceToLine(x2, y2, x3, y3, x4, y4);
+    double dist3 = _distanceToLine(x3, y3, x1, y1, x2, y2);
+    double dist4 = _distanceToLine(x4, y4, x1, y1, x2, y2);
+
+    // Return the minimum of these distances
+    return [dist1, dist2, dist3, dist4].reduce((a, b) => a < b ? a : b);
+  }
+
+  static double calculateAvailableLengthWithinBounds(
+      Offset startPoint, double angle, Grid grid) {
+    Path? wallsPath = SketchHelpers.getWallsPath(grid);
+    if (wallsPath == null) return 0;
+
+    double maxLength = 0;
+    for (double length = 0; length <= 1000; length += 1) {
+      // Increment by small steps
+      Offset testPoint = Offset(startPoint.dx + length * cos(angle),
+          startPoint.dy + length * sin(angle));
+      if (!isPointInsidePath(testPoint, wallsPath, grid)) {
+        maxLength = length;
+        break;
+      }
+      maxLength = length;
+    }
+    return maxLength;
+  }
+
+  static bool isPointInsidePath(Offset point, Path? wallsPath, Grid grid) {
+    wallsPath ??= SketchHelpers.getWallsPath(grid);
+    return wallsPath?.contains(point) ?? false;
+  }
+
+  static Offset getClosestPointOnWall(DragHandle dragHandle, Wall wall) {
+    // Get the two handles of the wall
+    Offset wallHandleA = Offset(wall.handleA.x, wall.handleA.y);
+    Offset wallHandleB = Offset(wall.handleB.x, wall.handleB.y);
+
+    // Calculate the vector from wallHandleA to wallHandleB
+    Offset wallVector = wallHandleB - wallHandleA;
+
+    // Calculate the vector from wallHandleA to the dragHandle
+    Offset dragVector = Offset(dragHandle.x, dragHandle.y) - wallHandleA;
+
+    // Project dragVector onto wallVector (perpendicular projection)
+    double projection =
+        (dragVector.dx * wallVector.dx + dragVector.dy * wallVector.dy) /
+            (wallVector.dx * wallVector.dx + wallVector.dy * wallVector.dy);
+
+    // Clamp the projection to ensure it falls within the line segment [wallHandleA, wallHandleB]
+    projection = projection.clamp(0.0, 1.0);
+
+    // Find the closest point on the wall
+    Offset closestPoint = wallHandleA + (wallVector * projection);
+
+    return closestPoint;
   }
 }

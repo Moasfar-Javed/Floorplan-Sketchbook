@@ -10,13 +10,12 @@ import 'package:sketchbook/sketch_helpers.dart';
 
 class InternalWall extends Entity {
   final double thickness;
-  final double parentWallAngle;
+
   DragHandle handleA;
   DragHandle handleB;
 
   InternalWall({
     required super.id,
-    required this.parentWallAngle,
     required this.thickness,
     required this.handleA,
     required this.handleB,
@@ -52,7 +51,6 @@ class InternalWall extends Entity {
   ) {
     return InternalWall(
       id: json['id'],
-      parentWallAngle: json["parentWallAngle"],
       thickness: json['thickness'],
       handleA: DragHandle.fromJson(json['handleA']),
       handleB: DragHandle.fromJson(json['handleB']),
@@ -63,7 +61,6 @@ class InternalWall extends Entity {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'parentWallAngle': parentWallAngle,
       'instanceType': EntityInstance.internalWall.value,
       'x': x,
       'y': y,
@@ -78,7 +75,6 @@ class InternalWall extends Entity {
   InternalWall clone() {
     return InternalWall(
       id: id,
-      parentWallAngle: parentWallAngle,
       thickness: thickness,
       handleA: handleA.clone(),
       handleB: handleB.clone(),
@@ -101,51 +97,5 @@ class InternalWall extends Entity {
   static double getAngle(InternalWall entity) {
     return atan2(entity.handleB.y - entity.handleA.y,
         entity.handleB.x - entity.handleA.x);
-  }
-
-  void rotate(double angle, String handleId) {
-    // Choose the handle to rotate based on the id
-    if (handleId == handleA.id) {
-      // If rotating handleA, rotate handleB (relative to handleA)
-      _rotateHandle(handleB, angle, handleA);
-    } else if (handleId == handleB.id) {
-      // If rotating handleB, rotate handleA (relative to handleB)
-      _rotateHandle(handleA, angle, handleB);
-    }
-  }
-
-  // Helper method to rotate a handle around the other
-  void _rotateHandle(
-      DragHandle handleToMove, double angle, DragHandle pivotHandle) {
-    double dx = handleToMove.x - pivotHandle.x;
-    double dy = handleToMove.y - pivotHandle.y;
-
-    // Apply rotation formula
-    double newX = pivotHandle.x + dx * cos(angle) - dy * sin(angle);
-    double newY = pivotHandle.y + dx * sin(angle) + dy * cos(angle);
-
-    // Update the handle's position
-    handleToMove.x = newX;
-    handleToMove.y = newY;
-
-    // Maintain the length by adjusting the other handle (if necessary)
-    double currentLength = length;
-    double newLength =
-        currentLength; // The length should stay the same after rotation.
-
-    // Recalculate handle B position based on the new length and the new angle
-    if (handleToMove == handleA) {
-      double dx = handleB.x - handleA.x;
-      double dy = handleB.y - handleA.y;
-      double angleB = atan2(dy, dx);
-      handleB.x = handleA.x + cos(angleB) * newLength;
-      handleB.y = handleA.y + sin(angleB) * newLength;
-    } else {
-      double dx = handleA.x - handleB.x;
-      double dy = handleA.y - handleB.y;
-      double angleA = atan2(dy, dx);
-      handleA.x = handleB.x + cos(angleA) * newLength;
-      handleA.y = handleB.y + sin(angleA) * newLength;
-    }
   }
 }
