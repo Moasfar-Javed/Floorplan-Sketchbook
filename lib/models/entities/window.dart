@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:sketchbook/extensions.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
@@ -34,6 +36,9 @@ class Window extends Entity {
       handleB: DragHandle.fromJson(json['handleB']),
     );
   }
+
+  double get length =>
+      sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
 
   @override
   Map<String, dynamic> toJson() {

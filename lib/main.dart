@@ -161,10 +161,20 @@ class _MyHomePageState extends State<MyHomePage>
                     _handleInteractionUpdate(details),
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
-                    if (selectedEntity is InternalWall) {
+                    bool isEntityWall = selectedEntity is Wall;
+                    bool isEntityWindow = selectedEntity is Window;
+                    bool isEntityInWall = selectedEntity is InternalWall;
+                    bool isEntityWallDragHandle =
+                        selectedEntity is DragHandle &&
+                            (selectedEntity as DragHandle).parentEntity ==
+                                ParentEntity.wall;
+                    bool isEntityInWallDragHandle =
+                        selectedEntity is DragHandle &&
+                            (selectedEntity as DragHandle).parentEntity ==
+                                ParentEntity.internalWall;
+                    if (isEntityInWall) {
                       _handleInternalWallSnapping();
-                    } else if ((selectedEntity as DragHandle).parentEntity ==
-                        ParentEntity.internalWall) {
+                    } else if (isEntityInWallDragHandle) {
                       _handleInternalWallSnapping(
                         selectedInWall: grid.entities
                             .whereType<InternalWall>()
@@ -176,11 +186,14 @@ class _MyHomePageState extends State<MyHomePage>
                                       .isEqual(selectedEntity as DragHandle),
                             ),
                       );
+                    } else if (isEntityWall || isEntityWallDragHandle) {
+                      for (var inWall
+                          in grid.entities.whereType<InternalWall>().toList()) {
+                        _handleInternalWallSnapping(selectedInWall: inWall);
+                      }
                     }
 
-                    setGridState(() {
-                      // grid.snapEntityToGrid(selectedEntity!);
-                    });
+                    setGridState(() {});
                   }
                 },
                 child: Stack(
@@ -217,7 +230,9 @@ class _MyHomePageState extends State<MyHomePage>
 
   void _handleInteractionUpdate(ScaleUpdateDetails details) {
     if (selectedEntity != null) {
-      if (selectedEntity is DragHandle) {
+      if (selectedEntity is Window) {
+        _handleWindowMovement(details);
+      } else if (selectedEntity is DragHandle) {
         _handleDragHandleInteraction(details);
       } else {
         selectedEntity?.move(
@@ -227,6 +242,207 @@ class _MyHomePageState extends State<MyHomePage>
       }
       setState(() {});
     }
+  }
+
+  // void _handleWindowMovement(ScaleUpdateDetails details) {
+  //   if (selectedEntity == null || selectedEntity is! Window) return;
+
+  //   final window = selectedEntity as Window;
+
+  //   // Generate the path for the walls
+  //   Path? wallsPath = SketchHelpers.getWallsPath(grid);
+  //   if (wallsPath == null) return;
+
+  //   // Move both handles by the focal point delta
+  //   window.handleA.move(details.focalPointDelta.dx, details.focalPointDelta.dy);
+  //   window.handleB.move(details.focalPointDelta.dx, details.focalPointDelta.dy);
+
+  //   // Find the closest points on the path for both handles
+  //   Offset closestPointA = _getClosestPointOnPath(window.handleA, wallsPath);
+  //   Offset closestPointB = _getClosestPointOnPath(window.handleB, wallsPath);
+
+  //   // Update the positions of both handles to follow the path smoothly
+  //   window.handleA.setPosition(closestPointA.dx, closestPointA.dy);
+  //   window.handleB.setPosition(closestPointB.dx, closestPointB.dy);
+  // }
+
+  // Offset _getClosestPointOnPath(DragHandle handle, Path path) {
+  //   // Iterate over the PathMetrics (PathMetric iterable) to find the closest point on the path
+  //   for (PathMetric pathMetric in path.computeMetrics()) {
+  //     // Find the closest point by checking the offset along the path (use the closest offset logic)
+  //     double closestOffset =
+  //         _findClosestOffsetOnPath(pathMetric, handle.position());
+
+  //     // Get the tangent at the closest offset along the path
+  //     Tangent? tangent = pathMetric.getTangentForOffset(closestOffset);
+
+  //     if (tangent != null) {
+  //       // Return the position of the tangent (the closest point)
+  //       return tangent.position;
+  //     }
+  //   }
+
+  //   // If no valid tangent is found, return a default value (shouldn't happen normally)
+  //   return Offset.zero;
+  // }
+
+  // double _findClosestOffsetOnPath(PathMetric pathMetric, Offset position) {
+  //   double pathLength = pathMetric.length;
+  //   double closestOffset = 0.0;
+
+  //   // Iterate over the path length and find the closest point
+  //   for (double offset = 0.0; offset < pathLength; offset += 1.0) {
+  //     // Get the tangent at this offset
+  //     Tangent? tangent = pathMetric.getTangentForOffset(offset);
+  //     if (tangent != null) {
+  //       // Calculate the distance between the handle's position and the tangent's position
+  //       double distance = (position - tangent.position).distance;
+  //       if (closestOffset == 0.0 ||
+  //           distance <
+  //               (position -
+  //                       pathMetric.getTangentForOffset(closestOffset)!.position)
+  //                   .distance) {
+  //         closestOffset = offset;
+  //       }
+  //     }
+  //   }
+
+  //   return closestOffset;
+  // }
+
+  void _handleWindowMovement(ScaleUpdateDetails details) {
+    if (selectedEntity == null || selectedEntity is! Window) return;
+
+    final window = selectedEntity as Window;
+    double originalLength = window.length;
+    Offset originalHandleA = window.handleA.position();
+    Offset originalHandleB = window.handleB.position();
+    Wall? parentWall;
+    Path? wallsPath = SketchHelpers.getWallsPath(grid);
+    if (wallsPath == null) return;
+
+    for (var wall in grid.entities.whereType<Wall>()) {
+      if (isOffsetInLine(
+            window.handleA.position(),
+            wall.handleA.position(),
+            wall.handleB.position(),
+          ) &&
+          isOffsetInLine(
+            window.handleB.position(),
+            wall.handleA.position(),
+            wall.handleB.position(),
+          )) {
+        parentWall = wall;
+        break;
+      }
+    }
+
+    if (parentWall == null) return;
+
+    Offset movementDelta = details.focalPointDelta;
+
+    window.handleA.move(movementDelta.dx, movementDelta.dy);
+    window.handleB.move(movementDelta.dx, movementDelta.dy);
+
+    // // Find the closest points on the path for both handles
+    Offset closestPointA = _getClosestPointOnWallSegment(
+      window.handleA.position(),
+      parentWall.handleA.position(),
+      parentWall.handleB.position(),
+    );
+    Offset closestPointB = _getClosestPointOnWallSegment(
+      window.handleB.position(),
+      parentWall.handleA.position(),
+      parentWall.handleB.position(),
+    );
+
+    window.handleA.setPosition(closestPointA.dx, closestPointA.dy);
+    window.handleB.setPosition(closestPointB.dx, closestPointB.dy);
+
+    if (window.length.toStringAsFixed(2) != originalLength.toStringAsFixed(2)) {
+      //revert
+      window.handleA.setPosition(originalHandleA.dx, originalHandleA.dy);
+      window.handleB.setPosition(originalHandleB.dx, originalHandleB.dy);
+    }
+  }
+
+  bool isOffsetInLine(
+      Offset targetOffset, Offset lineOffsetA, Offset lineOffsetB) {
+    // Define a small tolerance to account for floating-point precision issues
+    const double tolerance = 0.0001;
+
+    // Calculate the distance from the target to the line segment
+    double distance =
+        _distanceFromPointToLine(targetOffset, lineOffsetA, lineOffsetB);
+
+    // Check if the distance is within the tolerance
+    if (distance > tolerance) {
+      return false; // Target is not on the line
+    }
+
+    // Check if the target is within the bounds of the line segment
+    double minX =
+        lineOffsetA.dx < lineOffsetB.dx ? lineOffsetA.dx : lineOffsetB.dx;
+    double maxX =
+        lineOffsetA.dx > lineOffsetB.dx ? lineOffsetA.dx : lineOffsetB.dx;
+    double minY =
+        lineOffsetA.dy < lineOffsetB.dy ? lineOffsetA.dy : lineOffsetB.dy;
+    double maxY =
+        lineOffsetA.dy > lineOffsetB.dy ? lineOffsetA.dy : lineOffsetB.dy;
+
+    return targetOffset.dx >= minX - tolerance &&
+        targetOffset.dx <= maxX + tolerance &&
+        targetOffset.dy >= minY - tolerance &&
+        targetOffset.dy <= maxY + tolerance;
+  }
+
+  double _distanceFromPointToLine(
+      Offset point, Offset lineStart, Offset lineEnd) {
+    double dx = lineEnd.dx - lineStart.dx;
+    double dy = lineEnd.dy - lineStart.dy;
+
+    // Handle degenerate case where the line segment is a single point
+    double lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared == 0) return (point - lineStart).distance;
+
+    // Calculate projection factor (t) along the line segment
+    double t =
+        ((point.dx - lineStart.dx) * dx + (point.dy - lineStart.dy) * dy) /
+            lengthSquared;
+    t = t.clamp(0.0, 1.0); // Clamp to [0, 1] to stay within the line segment
+
+    // Find the projected point on the line
+    double projectionX = lineStart.dx + t * dx;
+    double projectionY = lineStart.dy + t * dy;
+
+    // Return the distance from the point to the projection
+    return (point - Offset(projectionX, projectionY)).distance;
+  }
+
+  Offset _getClosestPointOnWallSegment(
+      Offset targetOffset, Offset wallStart, Offset wallEnd) {
+    // Calculate the vector from the start of the wall to the target
+    Offset wallVector = wallEnd - wallStart;
+    Offset targetVector = targetOffset - wallStart;
+
+    // Calculate the length squared of the wall segment (to avoid unnecessary square roots)
+    double wallLengthSquared =
+        wallVector.dx * wallVector.dx + wallVector.dy * wallVector.dy;
+
+    // Handle the degenerate case where the wall segment is effectively a single point
+    if (wallLengthSquared == 0) return wallStart;
+
+    // Calculate the projection factor (t) of the target onto the wall segment
+    double t =
+        (targetVector.dx * wallVector.dx + targetVector.dy * wallVector.dy) /
+            wallLengthSquared;
+
+    // Clamp t to [0, 1] to ensure the closest point lies within the wall segment
+    t = t.clamp(0.0, 1.0);
+
+    // Find the closest point on the wall segment
+    return Offset(
+        wallStart.dx + t * wallVector.dx, wallStart.dy + t * wallVector.dy);
   }
 
   void _handleDragHandleInteraction(ScaleUpdateDetails details) {
@@ -891,27 +1107,34 @@ class _MyHomePageState extends State<MyHomePage>
             noWallMessage();
             return;
           }
+          final wall = (selectedEntity as Wall);
+          final wallCenter = Wall.getCenter(wall);
+          final wallAngle = Wall.getAngle(wall);
+
           setGridState(() {
+            double offsetX = 20 * cos(wallAngle);
+            double offsetY = 20 * sin(wallAngle);
+
             final window = Window(
               id: generateGuid(),
               thickness: 15,
               handleA: DragHandle(
                 id: generateGuid(),
-                x: canvasSize.width / 2,
-                y: canvasSize.height / 2,
+                x: wallCenter.dx - offsetX,
+                y: wallCenter.dy - offsetY,
                 parentEntity: ParentEntity.window,
                 handleType: HandleType.transparent,
               ),
               handleB: DragHandle(
                 id: generateGuid(),
-                x: canvasSize.width / 2,
-                y: canvasSize.height / 2 + 40,
+                x: wallCenter.dx + offsetX,
+                y: wallCenter.dy + offsetY,
                 parentEntity: ParentEntity.window,
                 handleType: HandleType.transparent,
               ),
             );
-            grid.addEntity(window);
 
+            grid.addEntity(window);
             selectedEntity = window;
           });
         } else if (value == 3) {
@@ -929,7 +1152,6 @@ class _MyHomePageState extends State<MyHomePage>
               activeEquipmentAsset: loadedActiveEquipmentAsset!,
             );
             grid.addEntity(equipment);
-
             selectedEntity = equipment;
           });
         } else if (value == 4) {

@@ -667,6 +667,45 @@ class SketchHelpers {
     }
   }
 
+  static double windowDistanceFromWall(Window internalWall, Wall wall) {
+    // Get the coordinates of the handles for both the internal wall and the wall
+    double x1 = internalWall.handleA.x;
+    double y1 = internalWall.handleA.y;
+    double x2 = internalWall.handleB.x;
+    double y2 = internalWall.handleB.y;
+    double x3 = wall.handleA.x;
+    double y3 = wall.handleA.y;
+    double x4 = wall.handleB.x;
+    double y4 = wall.handleB.y;
+
+    // Compute the vectors for the lines of both wall segments
+    double dx1 = x2 - x1;
+    double dy1 = y2 - y1;
+    double dx2 = x4 - x3;
+    double dy2 = y4 - y3;
+
+    // Calculate the determinant to check if the lines are parallel
+    double determinant = dx1 * dy2 - dy1 * dx2;
+
+    if (determinant == 0) {
+      // The lines are parallel, so we compute the perpendicular distance from one segment to the other
+      return _distanceToLine(x1, y1, x3, y3, x4, y4);
+    } else {
+      // The lines are not parallel, compute the intersection point and the distance
+      double t1 = ((x3 - x1) * dy2 - (y3 - y1) * dx2) / determinant;
+      double t2 = ((x3 - x1) * dy1 - (y3 - y1) * dx1) / determinant;
+
+      // If t1 and t2 are between 0 and 1, there is an intersection within the line segments
+      if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
+        // If the intersection is within the bounds, return 0 (there's no need for distance calculation)
+        return 0;
+      } else {
+        // If there's no intersection within the bounds, return the minimum distance from the endpoints
+        return _minDistanceToEndpoints(x1, y1, x2, y2, x3, y3, x4, y4);
+      }
+    }
+  }
+
 // Function to calculate the perpendicular distance from a point to a line
   static double _distanceToLine(
       double x1, double y1, double x2, double y2, double x3, double y3) {
