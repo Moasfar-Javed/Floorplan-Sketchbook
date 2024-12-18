@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:sketchbook/extensions.dart';
 import 'package:sketchbook/file_util.dart';
 import 'package:sketchbook/models/entities/door.dart';
 import 'package:sketchbook/models/entities/drag_handle.dart';
@@ -162,7 +163,7 @@ class _MyHomePageState extends State<MyHomePage>
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
                     bool isEntityWall = selectedEntity is Wall;
-                    bool isEntityWindow = selectedEntity is Window;
+
                     bool isEntityInWall = selectedEntity is InternalWall;
                     bool isEntityWallDragHandle =
                         selectedEntity is DragHandle &&
@@ -172,6 +173,10 @@ class _MyHomePageState extends State<MyHomePage>
                         selectedEntity is DragHandle &&
                             (selectedEntity as DragHandle).parentEntity ==
                                 ParentEntity.internalWall;
+                    bool isEntityWindowDragHandle =
+                        selectedEntity is DragHandle &&
+                            (selectedEntity as DragHandle).parentEntity ==
+                                ParentEntity.window;
                     if (isEntityInWall) {
                       _handleInternalWallSnapping();
                     } else if (isEntityInWallDragHandle) {
@@ -187,10 +192,25 @@ class _MyHomePageState extends State<MyHomePage>
                             ),
                       );
                     } else if (isEntityWall || isEntityWallDragHandle) {
-                      for (var inWall
-                          in grid.entities.whereType<InternalWall>().toList()) {
-                        _handleInternalWallSnapping(selectedInWall: inWall);
+                      for (var entity in grid.entities) {
+                        if (entity is InternalWall) {
+                          _handleInternalWallSnapping(selectedInWall: entity);
+                        } else if (entity is Window) {
+                          _handleWindowSnapping(selectedWindow: entity);
+                        }
                       }
+                    } else if (isEntityWindowDragHandle) {
+                      _handleWindowSnapping(
+                        selectedWindow: grid.entities
+                            .whereType<Window>()
+                            .firstWhere(
+                              (e) =>
+                                  e.handleA
+                                      .isEqual(selectedEntity as DragHandle) ||
+                                  e.handleB
+                                      .isEqual(selectedEntity as DragHandle),
+                            ),
+                      );
                     }
 
                     setGridState(() {});
@@ -244,72 +264,6 @@ class _MyHomePageState extends State<MyHomePage>
     }
   }
 
-  // void _handleWindowMovement(ScaleUpdateDetails details) {
-  //   if (selectedEntity == null || selectedEntity is! Window) return;
-
-  //   final window = selectedEntity as Window;
-
-  //   // Generate the path for the walls
-  //   Path? wallsPath = SketchHelpers.getWallsPath(grid);
-  //   if (wallsPath == null) return;
-
-  //   // Move both handles by the focal point delta
-  //   window.handleA.move(details.focalPointDelta.dx, details.focalPointDelta.dy);
-  //   window.handleB.move(details.focalPointDelta.dx, details.focalPointDelta.dy);
-
-  //   // Find the closest points on the path for both handles
-  //   Offset closestPointA = _getClosestPointOnPath(window.handleA, wallsPath);
-  //   Offset closestPointB = _getClosestPointOnPath(window.handleB, wallsPath);
-
-  //   // Update the positions of both handles to follow the path smoothly
-  //   window.handleA.setPosition(closestPointA.dx, closestPointA.dy);
-  //   window.handleB.setPosition(closestPointB.dx, closestPointB.dy);
-  // }
-
-  // Offset _getClosestPointOnPath(DragHandle handle, Path path) {
-  //   // Iterate over the PathMetrics (PathMetric iterable) to find the closest point on the path
-  //   for (PathMetric pathMetric in path.computeMetrics()) {
-  //     // Find the closest point by checking the offset along the path (use the closest offset logic)
-  //     double closestOffset =
-  //         _findClosestOffsetOnPath(pathMetric, handle.position());
-
-  //     // Get the tangent at the closest offset along the path
-  //     Tangent? tangent = pathMetric.getTangentForOffset(closestOffset);
-
-  //     if (tangent != null) {
-  //       // Return the position of the tangent (the closest point)
-  //       return tangent.position;
-  //     }
-  //   }
-
-  //   // If no valid tangent is found, return a default value (shouldn't happen normally)
-  //   return Offset.zero;
-  // }
-
-  // double _findClosestOffsetOnPath(PathMetric pathMetric, Offset position) {
-  //   double pathLength = pathMetric.length;
-  //   double closestOffset = 0.0;
-
-  //   // Iterate over the path length and find the closest point
-  //   for (double offset = 0.0; offset < pathLength; offset += 1.0) {
-  //     // Get the tangent at this offset
-  //     Tangent? tangent = pathMetric.getTangentForOffset(offset);
-  //     if (tangent != null) {
-  //       // Calculate the distance between the handle's position and the tangent's position
-  //       double distance = (position - tangent.position).distance;
-  //       if (closestOffset == 0.0 ||
-  //           distance <
-  //               (position -
-  //                       pathMetric.getTangentForOffset(closestOffset)!.position)
-  //                   .distance) {
-  //         closestOffset = offset;
-  //       }
-  //     }
-  //   }
-
-  //   return closestOffset;
-  // }
-
   void _handleWindowMovement(ScaleUpdateDetails details) {
     if (selectedEntity == null || selectedEntity is! Window) return;
 
@@ -321,6 +275,7 @@ class _MyHomePageState extends State<MyHomePage>
     Path? wallsPath = SketchHelpers.getWallsPath(grid);
     if (wallsPath == null) return;
 
+    // Find the parent wall
     for (var wall in grid.entities.whereType<Wall>()) {
       if (isOffsetInLine(
             window.handleA.position(),
@@ -341,10 +296,14 @@ class _MyHomePageState extends State<MyHomePage>
 
     Offset movementDelta = details.focalPointDelta;
 
+    // Move the window handles
     window.handleA.move(movementDelta.dx, movementDelta.dy);
     window.handleB.move(movementDelta.dx, movementDelta.dy);
 
-    // // Find the closest points on the path for both handles
+    // Default behavior: Align to the wall
+    window.handleA.move(movementDelta.dx, movementDelta.dy);
+    window.handleB.move(movementDelta.dx, movementDelta.dy);
+
     Offset closestPointA = _getClosestPointOnWallSegment(
       window.handleA.position(),
       parentWall.handleA.position(),
@@ -360,7 +319,7 @@ class _MyHomePageState extends State<MyHomePage>
     window.handleB.setPosition(closestPointB.dx, closestPointB.dy);
 
     if (window.length.toStringAsFixed(2) != originalLength.toStringAsFixed(2)) {
-      //revert
+      // Revert if length changes
       window.handleA.setPosition(originalHandleA.dx, originalHandleA.dy);
       window.handleB.setPosition(originalHandleB.dx, originalHandleB.dy);
     }
@@ -539,7 +498,7 @@ class _MyHomePageState extends State<MyHomePage>
 
     closeInternalWallHandle.setPosition(closestPoint.dx, closestPoint.dy);
 
-    Offset newFarHandlePosition = _calculateNewFarHandlePosition(
+    Offset newFarHandlePosition = _calculateNewFarInternalWallHandlePosition(
         internalWall, closestPoint, preserveLength, initialAngle);
 
     // Check if new far handle position is within the walls' bounds
@@ -555,11 +514,11 @@ class _MyHomePageState extends State<MyHomePage>
         return;
       } else if (availableLength < currentLength) {
         double trimmedLength = max(availableLength, 10);
-        newFarHandlePosition = _calculateNewFarHandlePosition(
+        newFarHandlePosition = _calculateNewFarInternalWallHandlePosition(
             internalWall, closestPoint, trimmedLength, initialAngle);
       } else {
         initialAngle = initialAngle + pi;
-        newFarHandlePosition = _calculateNewFarHandlePosition(
+        newFarHandlePosition = _calculateNewFarInternalWallHandlePosition(
             internalWall, closestPoint, preserveLength, initialAngle);
 
         if (!SketchHelpers.isPointInsidePath(
@@ -570,7 +529,7 @@ class _MyHomePageState extends State<MyHomePage>
             return;
           } else {
             double trimmedLength = max(availableLength, 10);
-            newFarHandlePosition = _calculateNewFarHandlePosition(
+            newFarHandlePosition = _calculateNewFarInternalWallHandlePosition(
                 internalWall, closestPoint, trimmedLength, initialAngle);
           }
         }
@@ -581,7 +540,62 @@ class _MyHomePageState extends State<MyHomePage>
         newFarHandlePosition.dx, newFarHandlePosition.dy);
   }
 
-  Offset _calculateNewFarHandlePosition(
+  void _handleWindowSnapping({Window? selectedWindow}) {
+    final window = selectedWindow ?? selectedEntity as Window;
+    List<Wall> walls = grid.entities.whereType<Wall>().toList();
+    Wall? closestWall;
+    double minDistance = double.infinity;
+
+    for (Wall wall in walls) {
+      double distance = SketchHelpers.windowDistanceFromWall(window, wall);
+
+      if (distance < minDistance && wall.length > window.length) {
+        minDistance = distance;
+        closestWall = wall;
+      }
+    }
+
+    if (closestWall == null) return;
+
+    // Get the wall's drag handles (start and end points)
+    Offset wallStart = closestWall.handleA.position();
+    Offset wallEnd = closestWall.handleB.position();
+
+    // Snap the first handle (handleA) to the closest point on the wall
+    Offset closestPointA =
+        SketchHelpers.getClosestPointOnWall(window.handleA, closestWall);
+
+    // Calculate the position for handleB based on the preserved length and wall direction
+    Offset directionVector = (wallEnd - wallStart).normalize();
+    Offset newHandleB = closestPointA + directionVector * window.length;
+
+    // Ensure handleB does not exceed the wall's bounds
+    if ((newHandleB - wallStart).dot(directionVector) < 0) {
+      // Clamp handleB to wall's start if it's before the start of the wall
+      newHandleB = wallStart;
+    } else if ((newHandleB - wallEnd).dot(directionVector) > 0) {
+      // Clamp handleB to wall's end if it exceeds the end of the wall
+      newHandleB = wallEnd;
+    }
+
+    // Adjust handleA to preserve window length within wall bounds
+    Offset adjustedHandleA = newHandleB - directionVector * window.length;
+    if ((adjustedHandleA - wallStart).dot(directionVector) < 0) {
+      // Clamp handleA to wall's start if it exceeds wall bounds
+      adjustedHandleA = wallStart;
+      newHandleB = adjustedHandleA + directionVector * window.length;
+    } else if ((adjustedHandleA - wallEnd).dot(directionVector) > 0) {
+      // Clamp handleA to wall's end if it exceeds wall bounds
+      adjustedHandleA = wallEnd;
+      newHandleB = adjustedHandleA - directionVector * window.length;
+    }
+
+    // Update the positions of the window handles
+    window.handleA.setPosition(adjustedHandleA.dx, adjustedHandleA.dy);
+    window.handleB.setPosition(newHandleB.dx, newHandleB.dy);
+  }
+
+  Offset _calculateNewFarInternalWallHandlePosition(
       InternalWall internalWall,
       Offset newCloseHandlePosition,
       double originalLength,
@@ -809,9 +823,15 @@ class _MyHomePageState extends State<MyHomePage>
                   grid.removeEntity(wall);
                   grid.addEntity(childWalls.$1);
                   grid.addEntity(childWalls.$2);
-                  // grid.snapEntityToGrid(childWalls.$1);
-                  // grid.snapEntityToGrid(childWalls.$2);
+
                   selectedEntity = null;
+                  for (var entity in grid.entities) {
+                    if (entity is InternalWall) {
+                      _handleInternalWallSnapping(selectedInWall: entity);
+                    } else if (entity is Window) {
+                      _handleWindowSnapping(selectedWindow: entity);
+                    }
+                  }
                 });
               },
             ),

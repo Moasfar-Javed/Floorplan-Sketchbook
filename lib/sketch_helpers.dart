@@ -667,43 +667,87 @@ class SketchHelpers {
     }
   }
 
-  static double windowDistanceFromWall(Window internalWall, Wall wall) {
-    // Get the coordinates of the handles for both the internal wall and the wall
-    double x1 = internalWall.handleA.x;
-    double y1 = internalWall.handleA.y;
-    double x2 = internalWall.handleB.x;
-    double y2 = internalWall.handleB.y;
+  static double windowDistanceFromWall(Window window, Wall wall) {
+    // Extract coordinates for the window and wall handles
+    double x1 = window.handleA.x;
+    double y1 = window.handleA.y;
+    double x2 = window.handleB.x;
+    double y2 = window.handleB.y;
     double x3 = wall.handleA.x;
     double y3 = wall.handleA.y;
     double x4 = wall.handleB.x;
     double y4 = wall.handleB.y;
 
-    // Compute the vectors for the lines of both wall segments
-    double dx1 = x2 - x1;
-    double dy1 = y2 - y1;
-    double dx2 = x4 - x3;
-    double dy2 = y4 - y3;
+    // Check if both handles of the window intersect the wall
+    bool handleAIntersects = _pointOnSegment(x1, y1, x3, y3, x4, y4);
+    bool handleBIntersects = _pointOnSegment(x2, y2, x3, y3, x4, y4);
 
-    // Calculate the determinant to check if the lines are parallel
-    double determinant = dx1 * dy2 - dy1 * dx2;
-
-    if (determinant == 0) {
-      // The lines are parallel, so we compute the perpendicular distance from one segment to the other
-      return _distanceToLine(x1, y1, x3, y3, x4, y4);
-    } else {
-      // The lines are not parallel, compute the intersection point and the distance
-      double t1 = ((x3 - x1) * dy2 - (y3 - y1) * dx2) / determinant;
-      double t2 = ((x3 - x1) * dy1 - (y3 - y1) * dx1) / determinant;
-
-      // If t1 and t2 are between 0 and 1, there is an intersection within the line segments
-      if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
-        // If the intersection is within the bounds, return 0 (there's no need for distance calculation)
-        return 0;
-      } else {
-        // If there's no intersection within the bounds, return the minimum distance from the endpoints
-        return _minDistanceToEndpoints(x1, y1, x2, y2, x3, y3, x4, y4);
-      }
+    if (handleAIntersects && handleBIntersects) {
+      return 0; // Both handles intersect, return distance as 0
     }
+
+    // Calculate the minimum distance between the endpoints
+    double distA = _pointToSegmentDistance(x1, y1, x3, y3, x4, y4);
+    double distB = _pointToSegmentDistance(x2, y2, x3, y3, x4, y4);
+    double distC = _pointToSegmentDistance(x3, y3, x1, y1, x2, y2);
+    double distD = _pointToSegmentDistance(x4, y4, x1, y1, x2, y2);
+
+    // Return the minimum distance
+    return [distA, distB, distC, distD].reduce((a, b) => a < b ? a : b);
+  }
+
+  // Check if a point lies on a line segment
+  static bool _pointOnSegment(
+      double px, double py, double x1, double y1, double x2, double y2) {
+    // Check if the point is within the bounding box of the segment
+    if ((px < x1 && px < x2) ||
+        (px > x1 && px > x2) ||
+        (py < y1 && py < y2) ||
+        (py > y1 && py > y2)) {
+      return false;
+    }
+
+    // Check if the point is collinear with the segment
+    double crossProduct = (py - y1) * (x2 - x1) - (px - x1) * (y2 - y1);
+    if (crossProduct.abs() > 1e-10) {
+      return false;
+    }
+
+    // Check if the point is within the segment range
+    double dotProduct = (px - x1) * (x2 - x1) + (py - y1) * (y2 - y1);
+    if (dotProduct < 0) {
+      return false;
+    }
+
+    num squaredLength = pow(x2 - x1, 2) + pow(y2 - y1, 2);
+    if (dotProduct > squaredLength) {
+      return false;
+    }
+
+    return true;
+  }
+
+// Calculate the perpendicular distance from a point to a line segment
+  static double _pointToSegmentDistance(
+      double px, double py, double x1, double y1, double x2, double y2) {
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+
+    // Handle the case of zero-length line segment
+    if (dx == 0 && dy == 0) {
+      return sqrt(pow(px - x1, 2) + pow(py - y1, 2));
+    }
+
+    // Calculate the projection of the point onto the line (clamped to the segment)
+    double t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
+    t = t.clamp(0.0, 1.0);
+
+    // Find the closest point on the segment
+    double closestX = x1 + t * dx;
+    double closestY = y1 + t * dy;
+
+    // Return the distance to the closest point
+    return sqrt(pow(px - closestX, 2) + pow(py - closestY, 2));
   }
 
 // Function to calculate the perpendicular distance from a point to a line

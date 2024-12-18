@@ -40,6 +40,11 @@ class Window extends Entity {
   double get length =>
       sqrt(pow(handleB.x - handleA.x, 2) + pow(handleB.y - handleA.y, 2));
 
+  static double getAngle(Window entity) {
+    return atan2(entity.handleB.y - entity.handleA.y,
+        entity.handleB.x - entity.handleA.x);
+  }
+
   @override
   Map<String, dynamic> toJson() {
     return {
