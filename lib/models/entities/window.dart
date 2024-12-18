@@ -76,7 +76,7 @@ class Window extends Entity {
   }
 
   @override
-  void draw(Canvas canvas, EntityState state) {
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor) {
     var paint = Paint()..color = Colors.white;
     var bgPaint = Paint()..color = Colors.black;
     var middlePaint = Paint()..color = Colors.black;
@@ -132,8 +132,8 @@ class Window extends Entity {
     );
 
     // Draw the handles
-    handleA.draw(canvas, state);
-    handleB.draw(canvas, state);
+    handleA.draw(canvas, state, gridScaleFactor);
+    handleB.draw(canvas, state, gridScaleFactor);
   }
 
   @override

@@ -26,7 +26,7 @@ class InternalWall extends Entity {
         );
 
   @override
-  void draw(Canvas canvas, EntityState state) {
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor) {
     var paint = Paint()..color = Colors.black;
     if (state == EntityState.focused) {
       paint.color = const Color(0xFFA7C1F7);
@@ -39,8 +39,8 @@ class InternalWall extends Entity {
       paint,
     );
 
-    handleA.draw(canvas, state);
-    handleB.draw(canvas, state);
+    handleA.draw(canvas, state, gridScaleFactor);
+    handleB.draw(canvas, state, gridScaleFactor);
   }
 
   double get length =>

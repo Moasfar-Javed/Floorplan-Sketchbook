@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:ui';
 
@@ -8,7 +9,7 @@ import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class MoisturePoint extends Entity {
-  double size = 40;
+  double size = 50;
   final ui.Image moisturePointAsset;
   final ui.Image activeMoisturePointAsset;
   String label;
@@ -73,15 +74,20 @@ class MoisturePoint extends Entity {
   }
 
   @override
-  void draw(Canvas canvas, EntityState state) {
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor) {
     final paint = Paint();
     final asset = state == EntityState.focused
         ? activeMoisturePointAsset
         : moisturePointAsset;
+
+    double baseSize = max(size, size * gridScaleFactor);
+
     final imageWidth = asset.width.toDouble();
     final imageHeight = asset.height.toDouble();
-    final scaleX = size / imageWidth;
-    final scaleY = size / imageHeight;
+
+    // Scale the moisture point size based on the new base size
+    final scaleX = baseSize / imageWidth;
+    final scaleY = baseSize / imageHeight;
 
     final matrix = Matrix4.identity()
       ..translate(x, y)
@@ -98,6 +104,7 @@ class MoisturePoint extends Entity {
 
     canvas.restore();
 
+    // Adjust label text style based on the scale factor
     const textStyle = TextStyle(
       color: Colors.black,
       fontSize: 14,
@@ -114,7 +121,8 @@ class MoisturePoint extends Entity {
     final paragraph = paragraphBuilder.build()
       ..layout(const ParagraphConstraints(width: 100));
 
-    final labelOffset = Offset(x + size / 2 + 5, y - paragraph.height / 2);
+    // Adjust label position considering the new scaled size
+    final labelOffset = Offset(x + baseSize / 2 + 5, y - paragraph.height / 2);
     canvas.drawParagraph(paragraph, labelOffset);
   }
 

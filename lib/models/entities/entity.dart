@@ -34,7 +34,7 @@ abstract class Entity with CloneableMixin<Entity> {
     return Offset(x, y);
   }
 
-  void draw(Canvas canvas, EntityState state);
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor);
 
   bool contains(Offset position);
 

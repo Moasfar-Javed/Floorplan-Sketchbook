@@ -69,7 +69,7 @@ class DragHandle extends Entity {
   }
 
   @override
-  void draw(Canvas canvas, EntityState state) {
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor) {
     final paint = Paint()
       ..color = handleType == HandleType.transparent
           ? Colors.transparent

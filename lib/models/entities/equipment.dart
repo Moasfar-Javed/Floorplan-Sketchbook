@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:ui';
 
@@ -8,7 +9,7 @@ import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
 
 class Equipment extends Entity {
-  double size = 40;
+  double size = 50;
   final ui.Image equipmentAsset;
   final ui.Image activeEquipmentAsset;
   String label;
@@ -73,14 +74,19 @@ class Equipment extends Entity {
   }
 
   @override
-  void draw(Canvas canvas, EntityState state) {
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor) {
     final paint = Paint();
     final asset =
         state == EntityState.focused ? activeEquipmentAsset : equipmentAsset;
+
+    double baseSize = max(size, size / gridScaleFactor);
+
     final imageWidth = asset.width.toDouble();
     final imageHeight = asset.height.toDouble();
-    final scaleX = size / imageWidth;
-    final scaleY = size / imageHeight;
+
+    // Scale the equipment size based on the new base size
+    final scaleX = baseSize / imageWidth;
+    final scaleY = baseSize / imageHeight;
 
     final matrix = Matrix4.identity()
       ..translate(x, y)
@@ -97,9 +103,10 @@ class Equipment extends Entity {
 
     canvas.restore();
 
-    const textStyle = TextStyle(
+    // Adjust label text style based on the scale factor
+    final textStyle = TextStyle(
       color: Colors.black,
-      fontSize: 14,
+      fontSize: max(14, 14 / gridScaleFactor),
     );
     final paragraphStyle = ParagraphStyle(
       textAlign: TextAlign.left,
@@ -113,7 +120,8 @@ class Equipment extends Entity {
     final paragraph = paragraphBuilder.build()
       ..layout(const ParagraphConstraints(width: 100));
 
-    final labelOffset = Offset(x + size / 2 + 5, y - paragraph.height / 2);
+    // Adjust label position considering the new scaled size
+    final labelOffset = Offset(x + baseSize / 2 + 5, y - paragraph.height / 2);
     canvas.drawParagraph(paragraph, labelOffset);
   }
 

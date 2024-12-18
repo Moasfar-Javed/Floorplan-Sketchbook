@@ -4,8 +4,6 @@ import 'dart:ui' as ui;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 import 'package:sketchbook/extensions.dart';
 import 'package:sketchbook/file_util.dart';
 import 'package:sketchbook/models/entities/door.dart';
@@ -27,7 +25,6 @@ import 'package:sketchbook/painters/unit_painter.dart';
 import 'package:sketchbook/sketch_helpers.dart';
 import 'package:undo_redo/undo_redo.dart';
 import 'package:uuid/uuid.dart';
-import 'package:vector_math/vector_math_64.dart' as vector;
 
 const cellSizeUnitPx = 20.0;
 const oneCellToInches = 5; // one cell is 5 inches
@@ -76,6 +73,7 @@ class _MyHomePageState extends State<MyHomePage>
       TransformationController();
   final UndoRedoManager<Grid> _undoRedoManager = UndoRedoManager<Grid>();
 
+  double scaleFactor = 1;
   bool initialized = false;
   Entity? selectedEntity;
   ui.Image? loadedDoorAsset,
@@ -98,6 +96,13 @@ class _MyHomePageState extends State<MyHomePage>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+
+    _animationController.addListener(() {
+      if (_animationController.isAnimating ||
+          _animationController.isCompleted) {
+        _calculateScaleFactor();
+      }
+    });
     super.initState();
   }
 
@@ -163,7 +168,6 @@ class _MyHomePageState extends State<MyHomePage>
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
                     bool isEntityWall = selectedEntity is Wall;
-
                     bool isEntityInWall = selectedEntity is InternalWall;
                     bool isEntityWallDragHandle =
                         selectedEntity is DragHandle &&
@@ -221,6 +225,7 @@ class _MyHomePageState extends State<MyHomePage>
                     CustomPaint(
                       size: canvasSize,
                       painter: BasePainter(
+                        scaleFactor: scaleFactor,
                         grid: grid,
                         selectedEntity: selectedEntity,
                       ),
@@ -229,6 +234,7 @@ class _MyHomePageState extends State<MyHomePage>
                       CustomPaint(
                         size: canvasSize,
                         painter: UnitPainter(
+                          scaleFactor: scaleFactor,
                           unit: grid.unit,
                           walls: grid.entities.whereType<Wall>().toList(),
                           internalWalls:
@@ -248,7 +254,14 @@ class _MyHomePageState extends State<MyHomePage>
     );
   }
 
+  void _calculateScaleFactor() {
+    setState(() {
+      scaleFactor = _transformationController.value.getMaxScaleOnAxis();
+    });
+  }
+
   void _handleInteractionUpdate(ScaleUpdateDetails details) {
+    _calculateScaleFactor();
     if (selectedEntity != null) {
       if (selectedEntity is Window) {
         _handleWindowMovement(details);
@@ -741,7 +754,7 @@ class _MyHomePageState extends State<MyHomePage>
                 _animationController,
                 _transformationController,
               );
-              setState(() {});
+              _calculateScaleFactor();
             },
           ),
           TextButton(
@@ -753,7 +766,7 @@ class _MyHomePageState extends State<MyHomePage>
                 _animationController,
                 _transformationController,
               );
-              setState(() {});
+              _calculateScaleFactor();
             },
           ),
           TextButton(
@@ -957,19 +970,7 @@ class _MyHomePageState extends State<MyHomePage>
                 selectedEntity = null;
               });
             },
-          ),
-          TextButton(
-            child: const Text('Snap to Closest Wall'),
-            onPressed: () {
-              setGridState(() {
-                // TODO: Optimize later, the double call is a bandaid solution for a misalighnment problem
-                (selectedEntity as Window).snapToClosestWall(
-                    grid.entities.whereType<Wall>().toList());
-                (selectedEntity as Window).snapToClosestWall(
-                    grid.entities.whereType<Wall>().toList());
-              });
-            },
-          ),
+          )
         ],
       );
     }

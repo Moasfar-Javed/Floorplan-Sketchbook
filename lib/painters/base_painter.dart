@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/grid.dart';
-import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/sketch_helpers.dart';
 
 class BasePainter extends CustomPainter {
+  final double scaleFactor;
   final Entity? selectedEntity;
   final Grid grid;
 
   BasePainter({
+    required this.scaleFactor,
     required this.grid,
     required this.selectedEntity,
   });
@@ -50,6 +51,7 @@ class BasePainter extends CustomPainter {
                 ? EntityState.relativePerpendicular
                 : EntityState.focused
             : EntityState.normal,
+        scaleFactor,
       );
     }
   }

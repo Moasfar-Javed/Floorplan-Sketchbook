@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/internal_wall.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/enums/unit.dart';
-import 'package:sketchbook/sketch_helpers.dart';
 
 /// A CustomPainter to render parallel lines to walls with some spacing
 /// to indicate their unit size
 class UnitPainter extends CustomPainter {
+  final double scaleFactor;
   final List<Wall> walls;
   final List<InternalWall> internalWalls;
   final double spacing; // Spacing between a wall and a parallel unit line
@@ -16,6 +16,7 @@ class UnitPainter extends CustomPainter {
   Path? wallsPath; // The closed path formed by the walls
 
   UnitPainter({
+    required this.scaleFactor,
     required this.walls,
     required this.internalWalls,
     required this.unit,
@@ -248,14 +249,20 @@ class UnitPainter extends CustomPainter {
     return Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
   }
 
-  /// Prepares a TextPainter for rendering text
+  /// Prepares a TextPainter for rendering text, scaling the font size based on the scale factor
   TextPainter _getTextPainter(dynamic text) {
+    double baseFontSize = 12.0; // Base font size (before scaling)
+    double scaledFontSize = baseFontSize / scaleFactor; // Scale the font size
+
+    scaledFontSize = scaledFontSize.clamp(10.0, 24.0);
+
     return TextPainter(
       text: TextSpan(
         text: text.substring(text.length - 4),
-        // todo: uncomment for units
-        // SketchHelpers.distancePxToUnit(text, unit),
-        style: const TextStyle(color: Color(0xFF2463EB), fontSize: 12),
+        style: TextStyle(
+          color: const Color(0xFF2463EB),
+          fontSize: scaledFontSize,
+        ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,

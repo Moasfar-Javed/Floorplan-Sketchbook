@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/entity.dart';
-import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/enums/entity_instance.dart';
 import 'package:sketchbook/models/enums/entity_state.dart';
 import 'package:sketchbook/models/enums/z_index.dart';
@@ -52,7 +51,7 @@ class Door extends Entity {
   // }
 
   @override
-  void draw(Canvas canvas, EntityState state) {
+  void draw(Canvas canvas, EntityState state, double gridScaleFactor) {
     final paint = Paint();
     final asset = state == EntityState.focused ? doorActiveAsset : doorAsset;
     final imageWidth = asset.width.toDouble();
