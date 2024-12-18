@@ -795,7 +795,7 @@ class SketchHelpers {
     return wallsPath?.contains(point) ?? false;
   }
 
-  static Offset getClosestPointOnWall(DragHandle dragHandle, Wall wall) {
+  static Offset getClosestPointOnWall(Offset offset, Wall wall) {
     // Get the two handles of the wall
     Offset wallHandleA = Offset(wall.handleA.x, wall.handleA.y);
     Offset wallHandleB = Offset(wall.handleB.x, wall.handleB.y);
@@ -804,7 +804,7 @@ class SketchHelpers {
     Offset wallVector = wallHandleB - wallHandleA;
 
     // Calculate the vector from wallHandleA to the dragHandle
-    Offset dragVector = Offset(dragHandle.x, dragHandle.y) - wallHandleA;
+    Offset dragVector = Offset(offset.dx, offset.dy) - wallHandleA;
 
     // Project dragVector onto wallVector (perpendicular projection)
     double projection =
@@ -818,5 +818,23 @@ class SketchHelpers {
     Offset closestPoint = wallHandleA + (wallVector * projection);
 
     return closestPoint;
+  }
+
+  static double doorDistanceFromWall(Door door, Wall wall) {
+    Offset wallStart = wall.handleA.position();
+    Offset wallEnd = wall.handleB.position();
+    Offset doorPosition = Offset(door.x, door.y);
+
+    // Custom cross product function
+    double crossProduct(Offset a, Offset b) {
+      return a.dx * b.dy - a.dy * b.dx;
+    }
+
+    Offset wallVector = wallEnd - wallStart;
+    Offset doorToWallStart = doorPosition - wallStart;
+
+    // Calculate perpendicular distance using cross product
+    return crossProduct(doorToWallStart, wallVector).abs() /
+        wallVector.distance;
   }
 }

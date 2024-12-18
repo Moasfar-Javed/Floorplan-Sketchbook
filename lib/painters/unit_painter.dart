@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sketchbook/models/entities/internal_wall.dart';
 import 'package:sketchbook/models/entities/wall.dart';
 import 'package:sketchbook/models/enums/unit.dart';
+import 'package:sketchbook/sketch_helpers.dart';
 
 /// A CustomPainter to render parallel lines to walls with some spacing
 /// to indicate their unit size
@@ -43,8 +44,8 @@ class UnitPainter extends CustomPainter {
     wallsPath = _getWallsPath();
 
     for (var wall in walls) {
-      final textPainter = _getTextPainter(wall.id);
-      // final textPainter = _getTextPainter(wall.length);
+      // final textPainter = _getTextPainter(wall.id);
+      final textPainter = _getTextPainter(wall.length);
 
       // Generate the initial parallel path
       Path parallelPath = _getParallelLine(
@@ -125,7 +126,7 @@ class UnitPainter extends CustomPainter {
     wallsPath = _getWallsPath();
 
     for (var wall in internalWalls) {
-      final textPainter = _getTextPainter(wall.id);
+      final textPainter = _getTextPainter(wall.length);
 
       // Generate the initial parallel path
       Path parallelPath = _getParallelLine(
@@ -258,7 +259,7 @@ class UnitPainter extends CustomPainter {
 
     return TextPainter(
       text: TextSpan(
-        text: text.substring(text.length - 4),
+        text: SketchHelpers.distancePxToUnit(text, unit),
         style: TextStyle(
           color: const Color(0xFF2463EB),
           fontSize: scaledFontSize,

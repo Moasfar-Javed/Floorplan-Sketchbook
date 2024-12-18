@@ -167,6 +167,8 @@ class _MyHomePageState extends State<MyHomePage>
                     _handleInteractionUpdate(details),
                 onInteractionEnd: (details) {
                   if (selectedEntity != null) {
+                    bool isEntityWindow = selectedEntity is Window;
+                    bool isEntityDoor = selectedEntity is Door;
                     bool isEntityWall = selectedEntity is Wall;
                     bool isEntityInWall = selectedEntity is InternalWall;
                     bool isEntityWallDragHandle =
@@ -196,13 +198,7 @@ class _MyHomePageState extends State<MyHomePage>
                             ),
                       );
                     } else if (isEntityWall || isEntityWallDragHandle) {
-                      for (var entity in grid.entities) {
-                        if (entity is InternalWall) {
-                          _handleInternalWallSnapping(selectedInWall: entity);
-                        } else if (entity is Window) {
-                          _handleWindowSnapping(selectedWindow: entity);
-                        }
-                      }
+                      // todo:
                     } else if (isEntityWindowDragHandle) {
                       _handleWindowSnapping(
                         selectedWindow: grid.entities
@@ -215,6 +211,10 @@ class _MyHomePageState extends State<MyHomePage>
                                       .isEqual(selectedEntity as DragHandle),
                             ),
                       );
+                    } else if (isEntityDoor) {
+                      _handleDoorSnapping();
+                    } else if (isEntityWindow) {
+                      _handleWindowSnapping();
                     }
 
                     setGridState(() {});
@@ -263,9 +263,7 @@ class _MyHomePageState extends State<MyHomePage>
   void _handleInteractionUpdate(ScaleUpdateDetails details) {
     _calculateScaleFactor();
     if (selectedEntity != null) {
-      if (selectedEntity is Window) {
-        _handleWindowMovement(details);
-      } else if (selectedEntity is DragHandle) {
+      if (selectedEntity is DragHandle) {
         _handleDragHandleInteraction(details);
       } else {
         selectedEntity?.move(
@@ -273,148 +271,27 @@ class _MyHomePageState extends State<MyHomePage>
           details.focalPointDelta.dy,
         );
       }
+
+      if (selectedEntity is Wall ||
+          (selectedEntity is DragHandle &&
+              (selectedEntity as DragHandle).parentEntity ==
+                  ParentEntity.wall)) {
+        _transformWallAttachedEntities();
+      }
       setState(() {});
     }
   }
 
-  void _handleWindowMovement(ScaleUpdateDetails details) {
-    if (selectedEntity == null || selectedEntity is! Window) return;
-
-    final window = selectedEntity as Window;
-    double originalLength = window.length;
-    Offset originalHandleA = window.handleA.position();
-    Offset originalHandleB = window.handleB.position();
-    Wall? parentWall;
-    Path? wallsPath = SketchHelpers.getWallsPath(grid);
-    if (wallsPath == null) return;
-
-    // Find the parent wall
-    for (var wall in grid.entities.whereType<Wall>()) {
-      if (isOffsetInLine(
-            window.handleA.position(),
-            wall.handleA.position(),
-            wall.handleB.position(),
-          ) &&
-          isOffsetInLine(
-            window.handleB.position(),
-            wall.handleA.position(),
-            wall.handleB.position(),
-          )) {
-        parentWall = wall;
-        break;
+  _transformWallAttachedEntities() {
+    for (var entity in grid.entities) {
+      if (entity is InternalWall) {
+        _handleInternalWallSnapping(selectedInWall: entity);
+      } else if (entity is Window) {
+        _handleWindowSnapping(selectedWindow: entity);
+      } else if (entity is Door) {
+        _handleDoorSnapping(selectedDoor: entity);
       }
     }
-
-    if (parentWall == null) return;
-
-    Offset movementDelta = details.focalPointDelta;
-
-    // Move the window handles
-    window.handleA.move(movementDelta.dx, movementDelta.dy);
-    window.handleB.move(movementDelta.dx, movementDelta.dy);
-
-    // Default behavior: Align to the wall
-    window.handleA.move(movementDelta.dx, movementDelta.dy);
-    window.handleB.move(movementDelta.dx, movementDelta.dy);
-
-    Offset closestPointA = _getClosestPointOnWallSegment(
-      window.handleA.position(),
-      parentWall.handleA.position(),
-      parentWall.handleB.position(),
-    );
-    Offset closestPointB = _getClosestPointOnWallSegment(
-      window.handleB.position(),
-      parentWall.handleA.position(),
-      parentWall.handleB.position(),
-    );
-
-    window.handleA.setPosition(closestPointA.dx, closestPointA.dy);
-    window.handleB.setPosition(closestPointB.dx, closestPointB.dy);
-
-    if (window.length.toStringAsFixed(2) != originalLength.toStringAsFixed(2)) {
-      // Revert if length changes
-      window.handleA.setPosition(originalHandleA.dx, originalHandleA.dy);
-      window.handleB.setPosition(originalHandleB.dx, originalHandleB.dy);
-    }
-  }
-
-  bool isOffsetInLine(
-      Offset targetOffset, Offset lineOffsetA, Offset lineOffsetB) {
-    // Define a small tolerance to account for floating-point precision issues
-    const double tolerance = 0.0001;
-
-    // Calculate the distance from the target to the line segment
-    double distance =
-        _distanceFromPointToLine(targetOffset, lineOffsetA, lineOffsetB);
-
-    // Check if the distance is within the tolerance
-    if (distance > tolerance) {
-      return false; // Target is not on the line
-    }
-
-    // Check if the target is within the bounds of the line segment
-    double minX =
-        lineOffsetA.dx < lineOffsetB.dx ? lineOffsetA.dx : lineOffsetB.dx;
-    double maxX =
-        lineOffsetA.dx > lineOffsetB.dx ? lineOffsetA.dx : lineOffsetB.dx;
-    double minY =
-        lineOffsetA.dy < lineOffsetB.dy ? lineOffsetA.dy : lineOffsetB.dy;
-    double maxY =
-        lineOffsetA.dy > lineOffsetB.dy ? lineOffsetA.dy : lineOffsetB.dy;
-
-    return targetOffset.dx >= minX - tolerance &&
-        targetOffset.dx <= maxX + tolerance &&
-        targetOffset.dy >= minY - tolerance &&
-        targetOffset.dy <= maxY + tolerance;
-  }
-
-  double _distanceFromPointToLine(
-      Offset point, Offset lineStart, Offset lineEnd) {
-    double dx = lineEnd.dx - lineStart.dx;
-    double dy = lineEnd.dy - lineStart.dy;
-
-    // Handle degenerate case where the line segment is a single point
-    double lengthSquared = dx * dx + dy * dy;
-    if (lengthSquared == 0) return (point - lineStart).distance;
-
-    // Calculate projection factor (t) along the line segment
-    double t =
-        ((point.dx - lineStart.dx) * dx + (point.dy - lineStart.dy) * dy) /
-            lengthSquared;
-    t = t.clamp(0.0, 1.0); // Clamp to [0, 1] to stay within the line segment
-
-    // Find the projected point on the line
-    double projectionX = lineStart.dx + t * dx;
-    double projectionY = lineStart.dy + t * dy;
-
-    // Return the distance from the point to the projection
-    return (point - Offset(projectionX, projectionY)).distance;
-  }
-
-  Offset _getClosestPointOnWallSegment(
-      Offset targetOffset, Offset wallStart, Offset wallEnd) {
-    // Calculate the vector from the start of the wall to the target
-    Offset wallVector = wallEnd - wallStart;
-    Offset targetVector = targetOffset - wallStart;
-
-    // Calculate the length squared of the wall segment (to avoid unnecessary square roots)
-    double wallLengthSquared =
-        wallVector.dx * wallVector.dx + wallVector.dy * wallVector.dy;
-
-    // Handle the degenerate case where the wall segment is effectively a single point
-    if (wallLengthSquared == 0) return wallStart;
-
-    // Calculate the projection factor (t) of the target onto the wall segment
-    double t =
-        (targetVector.dx * wallVector.dx + targetVector.dy * wallVector.dy) /
-            wallLengthSquared;
-
-    // Clamp t to [0, 1] to ensure the closest point lies within the wall segment
-    t = t.clamp(0.0, 1.0);
-
-    // Find the closest point on the wall segment
-    return Offset(
-        wallStart.dx + t * wallVector.dx, wallStart.dy + t * wallVector.dy);
   }
 
   void _handleDragHandleInteraction(ScaleUpdateDetails details) {
@@ -507,7 +384,7 @@ class _MyHomePageState extends State<MyHomePage>
     }
 
     Offset closestPoint = SketchHelpers.getClosestPointOnWall(
-        closeInternalWallHandle, closestWall);
+        closeInternalWallHandle.position(), closestWall);
 
     closeInternalWallHandle.setPosition(closestPoint.dx, closestPoint.dy);
 
@@ -570,42 +447,70 @@ class _MyHomePageState extends State<MyHomePage>
 
     if (closestWall == null) return;
 
-    // Get the wall's drag handles (start and end points)
     Offset wallStart = closestWall.handleA.position();
     Offset wallEnd = closestWall.handleB.position();
-
-    // Snap the first handle (handleA) to the closest point on the wall
-    Offset closestPointA =
-        SketchHelpers.getClosestPointOnWall(window.handleA, closestWall);
-
-    // Calculate the position for handleB based on the preserved length and wall direction
     Offset directionVector = (wallEnd - wallStart).normalize();
-    Offset newHandleB = closestPointA + directionVector * window.length;
 
-    // Ensure handleB does not exceed the wall's bounds
-    if ((newHandleB - wallStart).dot(directionVector) < 0) {
-      // Clamp handleB to wall's start if it's before the start of the wall
-      newHandleB = wallStart;
-    } else if ((newHandleB - wallEnd).dot(directionVector) > 0) {
-      // Clamp handleB to wall's end if it exceeds the end of the wall
-      newHandleB = wallEnd;
+    Offset closestPointA = SketchHelpers.getClosestPointOnWall(
+      window.handleA.position(),
+      closestWall,
+    );
+
+    Offset closestPointB = closestPointA + directionVector * window.length;
+
+    if ((closestPointB - wallStart).dot(directionVector) < 0) {
+      closestPointB = wallStart;
+      closestPointA = closestPointB - directionVector * window.length;
+    } else if ((closestPointB - wallEnd).dot(directionVector) > 0) {
+      closestPointB = wallEnd;
+      closestPointA = closestPointB - directionVector * window.length;
     }
 
-    // Adjust handleA to preserve window length within wall bounds
-    Offset adjustedHandleA = newHandleB - directionVector * window.length;
-    if ((adjustedHandleA - wallStart).dot(directionVector) < 0) {
-      // Clamp handleA to wall's start if it exceeds wall bounds
-      adjustedHandleA = wallStart;
-      newHandleB = adjustedHandleA + directionVector * window.length;
-    } else if ((adjustedHandleA - wallEnd).dot(directionVector) > 0) {
-      // Clamp handleA to wall's end if it exceeds wall bounds
-      adjustedHandleA = wallEnd;
-      newHandleB = adjustedHandleA - directionVector * window.length;
+    if ((closestPointA - wallStart).dot(directionVector) < 0) {
+      closestPointA = wallStart;
+      closestPointB = closestPointA + directionVector * window.length;
+    } else if ((closestPointA - wallEnd).dot(directionVector) > 0) {
+      closestPointA = wallEnd;
+      closestPointB = closestPointA - directionVector * window.length;
     }
 
-    // Update the positions of the window handles
-    window.handleA.setPosition(adjustedHandleA.dx, adjustedHandleA.dy);
-    window.handleB.setPosition(newHandleB.dx, newHandleB.dy);
+    window.handleA.setPosition(closestPointA.dx, closestPointA.dy);
+    window.handleB.setPosition(closestPointB.dx, closestPointB.dy);
+  }
+
+  void _handleDoorSnapping({Door? selectedDoor}) {
+    final door = selectedDoor ?? selectedEntity as Door;
+    List<Wall> walls = grid.entities.whereType<Wall>().toList();
+    Wall? closestWall;
+    double minDistance = double.infinity;
+
+    // Find the closest wall to the door
+    for (Wall wall in walls) {
+      double distance = SketchHelpers.doorDistanceFromWall(door, wall);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestWall = wall;
+      }
+    }
+
+    if (closestWall == null) return;
+
+    // final wallCenter = Wall.getCenter(closestWall);
+    final wallAngle = Wall.getAngle(closestWall);
+
+    final wallNormal = Offset(cos(wallAngle + pi / 2), sin(wallAngle + pi / 2));
+    final adjustedPadding = wallNormal * 15;
+
+    Offset closestPointOnWall =
+        SketchHelpers.getClosestPointOnWall(door.position(), closestWall);
+
+    door.transform(
+      x: closestPointOnWall.dx,
+      y: closestPointOnWall.dy,
+      angle: wallAngle,
+      adjustmentPadding: adjustedPadding,
+    );
   }
 
   Offset _calculateNewFarInternalWallHandlePosition(
@@ -937,21 +842,13 @@ class _MyHomePageState extends State<MyHomePage>
             },
           ),
           TextButton(
-            child: const Text('Rotate Right'),
+            child: const Text('Flip'),
             onPressed: () {
               setGridState(() {
-                door.rotateClockwise();
+                door.flip();
               });
             },
-          ),
-          TextButton(
-            child: const Text('Rotate Left'),
-            onPressed: () {
-              setGridState(() {
-                door.rotateCounterclockwise();
-              });
-            },
-          ),
+          )
         ],
       );
     }
@@ -1111,11 +1008,16 @@ class _MyHomePageState extends State<MyHomePage>
               await SketchHelpers.loadImage('assets/door.png');
           loadedActiveDoorAsset = loadedActiveDoorAsset ??
               await SketchHelpers.loadImage('assets/door_active.png');
+
+          final wallNormal =
+              Offset(cos(wallAngle + pi / 2), sin(wallAngle + pi / 2));
+          final adjustedPadding = wallNormal * 15;
           setGridState(() {
             final door = Door(
               id: generateGuid(),
               x: wallCenter.dx,
               y: wallCenter.dy,
+              adjustedPadding: adjustedPadding,
               rotation: wallAngle,
               doorAsset: loadedDoorAsset!,
               doorActiveAsset: loadedActiveDoorAsset!,

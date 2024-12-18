@@ -30,6 +30,15 @@ class InternalWall extends Entity {
     var paint = Paint()..color = Colors.black;
     if (state == EntityState.focused) {
       paint.color = const Color(0xFFA7C1F7);
+    } else if (state == EntityState.relativePerpendicular) {
+      paint.color = const Color.fromARGB(255, 2, 179, 85); // Light blue color
+      final borderPaint = Paint()..color = paint.color;
+      borderPaint.strokeWidth = thickness; // Border width
+      canvas.drawLine(
+        Offset(handleA.x, handleA.y),
+        Offset(handleB.x, handleB.y),
+        borderPaint,
+      );
     }
     paint.strokeWidth = thickness;
 
