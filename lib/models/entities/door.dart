@@ -40,6 +40,8 @@ class Door extends Entity {
       doorAsset: assetImage,
       doorActiveAsset: assetActiveImage,
       rotation: json['rotation'],
+      adjustedPadding: json['adjustedPadding'],
+      flipHorizontal: json['flipHorizontal'],
     );
   }
 
@@ -52,6 +54,8 @@ class Door extends Entity {
       'y': y,
       'zIndex': zIndex,
       'rotation': rotation,
+      'flipHorizontal': flipHorizontal,
+      'adjustedPadding': adjustedPadding,
     };
   }
 

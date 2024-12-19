@@ -10,12 +10,14 @@ class DragHandle extends Entity {
   double size;
   final HandleType handleType;
   final ParentEntity parentEntity;
+  final bool clickable;
 
   DragHandle({
     required super.id,
     required super.x,
     required super.y,
     required this.parentEntity,
+    this.clickable = true,
     this.handleType = HandleType.colored,
     this.size = 6,
   }) : super(
@@ -30,6 +32,7 @@ class DragHandle extends Entity {
       x: json['x'],
       y: json['y'],
       size: json['size'],
+      clickable: json['clickable'],
       parentEntity: ParentEntity.fromValue(json['parentEntity']),
       handleType: HandleType.fromValue(json['handleType']),
     );
@@ -44,6 +47,7 @@ class DragHandle extends Entity {
       'y': y,
       'zIndex': zIndex,
       'size': size,
+      'clickable': clickable,
       'parentEntity': parentEntity.value,
       'handleType': handleType.value,
     };
